@@ -20,8 +20,7 @@ const articleSchema = new mongoose.Schema({
   },
   excerpt: {
     type: String,
-    trim: true,
-    maxlength: [200, 'Excerpt cannot be more than 200 characters']
+    trim: true
   },
   coverImage: {
     url: String,
@@ -118,7 +117,7 @@ articleSchema.pre('save', function(next) {
 
   // Generate excerpt from content if not provided
   if (this.isModified('content') && !this.excerpt) {
-    this.excerpt = this.content.substring(0, 200) + '...';
+    this.excerpt = this.content;
   }
 
   // Calculate reading time (assuming average reading speed of 200 words per minute)
