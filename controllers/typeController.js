@@ -1,38 +1,98 @@
 const Type = require('../models/Type');
+const AppError = require('../utils/appError');
 
-exports.getTypes = async (req, res) => {
-  const types = await Type.find();
-  res.json(types);
-};
-
-exports.createType = async (req, res) => {
+// Get all types
+exports.getAllTypes = async (req, res, next) => {
   try {
-    const type = new Type(req.body);
-    await type.save();
-    res.status(201).json(type);
+    const types = await Type.find()
+      .sort({ 'stats.articles': -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: types.length,
+      data: types
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 };
 
-exports.updateType = async (req, res) => {
-  const { id } = req.params;
+// Get type by slug
+exports.getTypeBySlug = async (req, res, next) => {
   try {
-    const type = await Type.findByIdAndUpdate(id, req.body, { new: true });
-    if (!type) return res.status(404).json({ message: 'Type not found' });
-    res.json(type);
+    const type = await Type.findOne({ slug: req.params.slug });
+
+    if (!type) {
+      return next(new AppError('No type found with that slug', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: type
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Error updating type', error: err.message });
+    next(err);
   }
 };
 
-exports.deleteType = async (req, res) => {
-  const { id } = req.params;
+// Create type
+exports.createType = async (req, res, next) => {
   try {
-    const type = await Type.findByIdAndDelete(id);
-    if (!type) return res.status(404).json({ message: 'Type not found' });
-    res.json({ message: 'Type deleted' });
+    const type = await Type.create({
+      ...req.body,
+      metadata: {
+        createdBy: req.user.id
+      }
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: type
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting type', error: err.message });
+    next(err);
+  }
+};
+
+// Update type
+exports.updateType = async (req, res, next) => {
+  try {
+    const type = await Type.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!type) {
+      return next(new AppError('No type found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: type
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Delete type
+exports.deleteType = async (req, res, next) => {
+  try {
+    const type = await Type.findByIdAndDelete(req.params.id);
+
+    if (!type) {
+      return next(new AppError('No type found with that ID', 404));
+    }
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (err) {
+    next(err);
   }
 }; 

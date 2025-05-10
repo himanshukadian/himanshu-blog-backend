@@ -1,22 +1,55 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
+const morgan = require('morgan');
+require('dotenv').config();
 const articleRoutes = require('./routes/articleRoutes');
 const tagRoutes = require('./routes/tagRoutes');
 const typeRoutes = require('./routes/typeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const authController = require('./controllers/authController');
+const authRoutes = require('./routes/authRoutes');
+const postRoutes = require('./routes/postRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(morgan('dev'));
 
+// Routes
 app.use('/api/articles', articleRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/types', typeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
-// app.post('/api/auth/register', authController.register); // Registration disabled after first admin
-app.post('/api/auth/login', authController.login);
+app.use('/api/auth', authRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/categories', categoryRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    status: 'error',
+    message: err.message || 'Something went wrong!'
+  });
+});
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 module.exports = app; 

@@ -1,7 +1,8 @@
 const cloudinary = require('cloudinary').v2;
-const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const AppError = require('../utils/appError');
 
 // Validate required environment variables
 const requiredEnvVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
@@ -19,56 +20,56 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure multer for memory storage
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF and WebP are allowed.'));
-    }
-  }
-}).single('image');
-
-// Handle image upload
-exports.uploadImage = async (req, res) => {
-  upload(req, res, async (err) => {
-    if (err) {
-      console.error('Multer error:', err);
-      return res.status(400).json({ error: err.message });
-    }
-
+// Upload image
+exports.uploadImage = async (req, res, next) => {
+  try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return next(new AppError('Please upload an image', 400));
     }
 
-    try {
-      // Convert buffer to base64
-      const b64 = Buffer.from(req.file.buffer).toString('base64');
-      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'blog',
+      use_filename: true,
+      unique_filename: true
+    });
 
-      // Upload to Cloudinary
-      const result = await cloudinary.uploader.upload(dataURI, {
-        folder: 'blog-images',
-        resource_type: 'auto'
-      });
+    // Delete the temporary file
+    fs.unlinkSync(req.file.path);
 
-      res.json({
+    res.status(200).json({
+      status: 'success',
+      data: {
         url: result.secure_url,
         public_id: result.public_id
-      });
-    } catch (error) {
-      console.error('Upload error:', error);
-      res.status(500).json({ 
-        error: 'Error uploading image',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+      }
+    });
+  } catch (err) {
+    // Clean up the temporary file if it exists
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
     }
-  });
+    next(err);
+  }
+};
+
+// Delete image
+exports.deleteImage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(id);
+
+    if (result.result !== 'ok') {
+      return next(new AppError('Error deleting image', 400));
+    }
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (err) {
+    next(err);
+  }
 }; 

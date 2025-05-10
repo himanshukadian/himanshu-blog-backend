@@ -1,38 +1,98 @@
 const Tag = require('../models/Tag');
+const AppError = require('../utils/appError');
 
-exports.getTags = async (req, res) => {
-  const tags = await Tag.find();
-  res.json(tags);
-};
-
-exports.createTag = async (req, res) => {
+// Get all tags
+exports.getAllTags = async (req, res, next) => {
   try {
-    const tag = new Tag(req.body);
-    await tag.save();
-    res.status(201).json(tag);
+    const tags = await Tag.find()
+      .sort({ 'stats.articles': -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: tags.length,
+      data: tags
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 };
 
-exports.updateTag = async (req, res) => {
-  const { id } = req.params;
+// Get tag by slug
+exports.getTagBySlug = async (req, res, next) => {
   try {
-    const tag = await Tag.findByIdAndUpdate(id, req.body, { new: true });
-    if (!tag) return res.status(404).json({ message: 'Tag not found' });
-    res.json(tag);
+    const tag = await Tag.findOne({ slug: req.params.slug });
+
+    if (!tag) {
+      return next(new AppError('No tag found with that slug', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: tag
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Error updating tag', error: err.message });
+    next(err);
   }
 };
 
-exports.deleteTag = async (req, res) => {
-  const { id } = req.params;
+// Create tag
+exports.createTag = async (req, res, next) => {
   try {
-    const tag = await Tag.findByIdAndDelete(id);
-    if (!tag) return res.status(404).json({ message: 'Tag not found' });
-    res.json({ message: 'Tag deleted' });
+    const tag = await Tag.create({
+      ...req.body,
+      metadata: {
+        createdBy: req.user.id
+      }
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: tag
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting tag', error: err.message });
+    next(err);
+  }
+};
+
+// Update tag
+exports.updateTag = async (req, res, next) => {
+  try {
+    const tag = await Tag.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!tag) {
+      return next(new AppError('No tag found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: tag
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Delete tag
+exports.deleteTag = async (req, res, next) => {
+  try {
+    const tag = await Tag.findByIdAndDelete(req.params.id);
+
+    if (!tag) {
+      return next(new AppError('No tag found with that ID', 404));
+    }
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (err) {
+    next(err);
   }
 }; 

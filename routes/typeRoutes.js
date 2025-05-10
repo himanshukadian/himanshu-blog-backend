@@ -1,11 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const typeController = require('../controllers/typeController');
-const { auth, permit } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const permit = require('../middleware/permission');
+const {
+  getAllTypes,
+  getTypeBySlug,
+  createType,
+  updateType,
+  deleteType
+} = require('../controllers/typeController');
 
-router.get('/', typeController.getTypes);
-router.post('/', auth, permit('admin', 'editor'), typeController.createType);
-router.put('/:id', auth, permit('admin', 'editor'), typeController.updateType);
-router.delete('/:id', auth, permit('admin'), typeController.deleteType);
+// Public routes
+router.get('/', getAllTypes);
+router.get('/:slug', getTypeBySlug);
+
+// Protected routes (admin and editor only)
+router.use(protect);
+router.post('/', permit('admin', 'editor'), createType);
+router.patch('/:id', permit('admin', 'editor'), updateType);
+router.delete('/:id', permit('admin', 'editor'), deleteType);
 
 module.exports = router; 

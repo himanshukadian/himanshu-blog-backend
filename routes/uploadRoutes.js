@@ -1,12 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { uploadImage } = require('../controllers/uploadController');
-const { auth, permit } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const permit = require('../middleware/permission');
+const upload = require('../middleware/upload');
+const {
+  uploadImage,
+  deleteImage
+} = require('../controllers/uploadController');
 
-// Protect all upload routes with auth middleware
-router.use(auth);
+// Protected routes
+router.use(protect);
 
-// Only admin users can upload images
-router.post('/image', permit('admin'), uploadImage);
+// Upload routes
+router.post('/image', upload.single('image'), uploadImage);
+router.delete('/image/:id', permit('admin', 'editor'), deleteImage);
 
 module.exports = router; 
