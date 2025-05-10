@@ -19,7 +19,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://blog.buildwithhimanshu.com/'
+    'https://blog.buildwithhimanshu.com'
   ],
   credentials: true
 }));
