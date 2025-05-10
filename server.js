@@ -18,13 +18,13 @@ app.use(helmet()); // Set security HTTP headers
 app.use(mongoSanitize()); // Sanitize data
 app.use(xss()); // Prevent XSS attacks
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api', limiter);
+// Rate limiting (disabled for now)
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 1000, // Limit each IP to 1000 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.'
+// });
+// app.use('/api', limiter);
 
 // Body parser
 app.use(express.json({ limit: '1mb' }));
