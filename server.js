@@ -63,6 +63,7 @@ app.use('/api/tags', require('./routes/tagRoutes'));
 app.use('/api/types', require('./routes/typeRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/scenes', require('./routes/sceneRoutes'));
 
 // Handle undefined routes
 app.all('*', (req, res, next) => {
