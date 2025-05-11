@@ -64,8 +64,12 @@ app.use('/api/tags', require('./routes/tagRoutes'));
 app.use('/api/types', require('./routes/typeRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api/scenes', require('./routes/sceneRoutes'));
+
+// Course hierarchy routes
+app.use('/api/courses', require('./routes/courseRoutes'));
+app.use('/api/sections', require('./routes/sectionRoutes'));
 app.use('/api/chapters', require('./routes/chapterRoutes'));
+app.use('/api/scenes', require('./routes/sceneRoutes'));
 
 // Handle undefined routes
 app.all('*', (req, res, next) => {

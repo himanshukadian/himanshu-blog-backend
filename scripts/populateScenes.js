@@ -1,8 +1,9 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const Course = require('../models/Course');
+const Section = require('../models/Section');
+const Chapter = require('../models/Chapter');
 const Scene = require('../models/Scene');
-const fs = require('fs');
-const path = require('path');
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -15,110 +16,81 @@ mongoose.connect(process.env.MONGO_URI, {
   process.exit(1);
 });
 
-// Function to read and parse frontend data files
-const readFrontendData = () => {
-  const frontendPath = '/Users/hc419z/Downloads/code-animo/app/system-design/data';
-  console.log('Looking for data files in:', frontendPath);
-  const chapters = {};
-
-  if (!fs.existsSync(frontendPath)) {
-    console.error('Frontend data directory not found:', frontendPath);
-    return chapters;
-  }
-
-  const files = fs.readdirSync(frontendPath)
-    .filter(file => file.endsWith('.ts') && file !== 'index.ts' && file !== 'types.ts');
-  console.log('Found files:', files);
-
-  files.forEach(file => {
-    const filePath = path.join(frontendPath, file);
-    console.log('Reading file:', filePath);
-    const content = fs.readFileSync(filePath, 'utf8');
-
-    // Extract the exported chapter name (e.g., export const cachingChapter: ChapterData = { ... })
-    const chapterExportMatch = content.match(/export const (\w+): ChapterData = {([\s\S]*?)};/);
-    if (!chapterExportMatch) {
-      console.log('No chapter export found in file:', file);
-      return;
-    }
-    // The exported object (e.g., cachingChapter)
-    // The object content (e.g., 'Caching': [ ... ])
-    const objectContent = chapterExportMatch[2];
-
-    // Extract the chapter key (e.g., 'Caching')
-    const chapterKeyMatch = objectContent.match(/'([^']+)'\s*:\s*\[/);
-    if (!chapterKeyMatch) {
-      console.log('No chapter key found in file:', file);
-      return;
-    }
-    const chapterKey = chapterKeyMatch[1];
-    console.log('Processing chapter:', chapterKey);
-
-    // Extract the array of steps (between the first [ and the matching ])
-    const stepsArrayMatch = objectContent.match(/\[([\s\S]*)\]/);
-    if (!stepsArrayMatch) {
-      console.log('No steps array found in file:', file);
-      return;
-    }
-    const stepsArrayContent = stepsArrayMatch[1];
-
-    // Split steps by '},' (end of each object), but keep the closing brace
-    const stepObjects = stepsArrayContent.split(/},\s*{/).map((step, idx, arr) => {
-      // Add opening/closing braces as needed
-      if (idx === 0) {
-        return step.endsWith('}') ? step : step + '}';
-      } else if (idx === arr.length - 1) {
-        return '{' + step;
-      } else {
-        return '{' + step + '}';
-      }
-    });
-
-    const steps = stepObjects.map((stepObj, i) => {
-      // Extract dialogue
-      const dialogueMatch = stepObj.match(/dialogue:\s*"([^"]*)"/);
-      const dialogue = dialogueMatch ? dialogueMatch[1] : '';
-      // Extract draw function as string
-      const drawMatch = stepObj.match(/draw:\s*\((ctx:[^)]*)\)\s*=>\s*{([\s\S]*)}/);
-      let drawFunction = '';
-      if (drawMatch) {
-        drawFunction = `(${drawMatch[1]}) => {${drawMatch[2]}}`;
-      }
-      return {
-        title: chapterKey + ' Step ' + (i + 1),
-        dialogue,
-        drawFunction,
-        order: i,
-        clearBeforeDraw: false // You can enhance this if needed
-      };
-    });
-    chapters[chapterKey] = steps;
-    console.log(`Found ${steps.length} steps in chapter ${chapterKey}`);
-  });
-  return chapters;
-};
-
 // Function to populate database
 const populateDatabase = async () => {
   try {
-    await Scene.deleteMany({});
-    console.log('Cleared existing scenes');
-    const chapters = readFrontendData();
-    console.log('Read frontend data:', Object.keys(chapters));
-    for (const [chapter, scenes] of Object.entries(chapters)) {
-      const scenesWithChapter = scenes.map(scene => ({
-        ...scene,
-        chapter
-      }));
-      await Scene.insertMany(scenesWithChapter);
-      console.log(`Inserted ${scenes.length} scenes for chapter: ${chapter}`);
+    // Find the existing System Design course
+    const course = await Course.findOne({ slug: 'system-design' });
+    if (!course) {
+      console.error('System Design course not found');
+      return;
     }
-    console.log('Database population completed successfully');
+    console.log('Found course:', course.title);
+
+    // Find existing sections
+    const sections = await Section.find({ courseId: course._id });
+    console.log('Found sections:', sections.map(s => s.title));
+
+    // Update chapters and scenes for each section
+    for (const section of sections) {
+      if (section.slug === 'advanced-concepts') {
+        // Find and update Rate Limiter chapter
+        const rateLimiterChapter = await Chapter.findOne({ 
+          sectionId: section._id,
+          slug: 'rate-limiter'
+        });
+        
+        if (rateLimiterChapter) {
+          // Update chapter with course field
+          await Chapter.findByIdAndUpdate(rateLimiterChapter._id, {
+            course: course.title
+          });
+          console.log(`Updated chapter: ${rateLimiterChapter.title}`);
+
+          // Update all scenes for this chapter
+          const scenes = await Scene.find({ chapterId: rateLimiterChapter._id });
+          for (const scene of scenes) {
+            await Scene.findByIdAndUpdate(scene._id, {
+              chapter: rateLimiterChapter.title
+            });
+            console.log(`Updated scene: ${scene.title}`);
+          }
+        }
+      } else if (section.slug === 'case-studies') {
+        // Find and update Lift Design chapter
+        const liftDesignChapter = await Chapter.findOne({ 
+          sectionId: section._id,
+          slug: 'lift-design'
+        });
+        
+        if (liftDesignChapter) {
+          // Update chapter with course field
+          await Chapter.findByIdAndUpdate(liftDesignChapter._id, {
+            course: course.title
+          });
+          console.log(`Updated chapter: ${liftDesignChapter.title}`);
+
+          // Update all scenes for this chapter
+          const scenes = await Scene.find({ chapterId: liftDesignChapter._id });
+          for (const scene of scenes) {
+            await Scene.findByIdAndUpdate(scene._id, {
+              chapter: liftDesignChapter.title
+            });
+            console.log(`Updated scene: ${scene.title}`);
+          }
+        }
+      }
+    }
+
+    console.log('Database update completed successfully! 🎉');
+
   } catch (error) {
-    console.error('Error populating database:', error);
+    console.error('Error updating database:', error);
   } finally {
-    mongoose.connection.close();
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
   }
 };
 
-populateDatabase(); 
+// Run the script
+populateDatabase();

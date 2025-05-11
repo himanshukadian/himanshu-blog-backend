@@ -5,7 +5,6 @@ const { protect, restrictTo } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Public routes
-router.get('/chapter/:slug', sceneController.getChapterScenes);
 router.get('/:id', sceneController.getScene);
 
 // Protected routes (require authentication)

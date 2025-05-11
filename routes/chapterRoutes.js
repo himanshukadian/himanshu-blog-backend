@@ -1,30 +1,16 @@
 const express = require('express');
-const router = express.Router();
-const Chapter = require('../models/Chapter');
+const chapterController = require('../controllers/chapterController');
 const { catchAsync } = require('../utils/errorHandler');
 
-// Get all chapters
-router.get('/', catchAsync(async (req, res) => {
-  const chapters = await Chapter.find().sort({ order: 1 });
-  res.status(200).json({
-    status: 'success',
-    data: chapters
-  });
-}));
+const router = express.Router();
 
-// Get chapter by slug
-router.get('/:slug', catchAsync(async (req, res) => {
-  const chapter = await Chapter.findOne({ slug: req.params.slug });
-  if (!chapter) {
-    return res.status(404).json({
-      status: 'fail',
-      message: 'Chapter not found'
-    });
-  }
-  res.status(200).json({
-    status: 'success',
-    data: chapter
-  });
-}));
+// Get all chapters
+router.get('/', catchAsync(chapterController.getAllChapters));
+
+// Get a specific chapter by slug
+router.get('/:chapterSlug', catchAsync(chapterController.getChapterBySlug));
+
+// Get scenes for a chapter
+router.get('/:chapterSlug/scenes', catchAsync(chapterController.getScenesForChapter));
 
 module.exports = router; 
