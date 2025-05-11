@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/:id', sceneController.getScene);
+router.get('/chapter/:slug', sceneController.getChapterScenes);
 
 // Protected routes (require authentication)
 router.use(protect);

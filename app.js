@@ -13,6 +13,7 @@ const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const sceneRoutes = require('./routes/sceneRoutes');
+const chapterRoutes = require('./routes/chapterRoutes');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/scenes', sceneRoutes);
+app.use('/api/chapters', chapterRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
