@@ -1,13 +1,29 @@
 const Scene = require('../models/Scene');
+const Chapter = require('../models/Chapter');
 const { catchAsync } = require('../utils/errorHandler');
 
-// Get all scenes for a chapter
+// Get all scenes for a chapter by slug
 exports.getChapterScenes = catchAsync(async (req, res) => {
-  const { chapter } = req.params;
-  const scenes = await Scene.getChapterScenes(chapter);
+  const { slug } = req.params;
+  // Find the chapter by slug
+  const chapter = await Chapter.findOne({ slug });
+  if (!chapter) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'Chapter not found'
+    });
+  }
+  // Fetch scenes by chapterId and populate chapterId
+  const scenes = await Scene.find({ chapterId: chapter._id }).sort({ order: 1 }).populate('chapterId', 'slug');
+  // Add slug to each scene in the response
+  const scenesWithSlug = scenes.map(scene => {
+    const obj = scene.toObject();
+    obj.chapterSlug = scene.chapterId.slug;
+    return obj;
+  });
   res.status(200).json({
     status: 'success',
-    data: scenes
+    data: scenesWithSlug
   });
 });
 

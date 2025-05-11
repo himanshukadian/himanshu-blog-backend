@@ -6,9 +6,14 @@ const sceneSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  chapterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chapter',
+    required: true
+  },
+  // Optionally keep chapter name for migration, but can be removed after migration
   chapter: {
     type: String,
-    required: true,
     trim: true
   },
   dialogue: {
@@ -40,11 +45,11 @@ const sceneSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-sceneSchema.index({ chapter: 1, order: 1 });
+sceneSchema.index({ chapterId: 1, order: 1 });
 
-// Static method to get all scenes for a chapter
-sceneSchema.statics.getChapterScenes = async function(chapter) {
-  return this.find({ chapter }).sort({ order: 1 });
+// Static method to get all scenes for a chapter by chapterId
+sceneSchema.statics.getChapterScenes = async function(chapterId) {
+  return this.find({ chapterId }).sort({ order: 1 });
 };
 
 // Static method to get a single scene
