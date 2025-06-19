@@ -14,6 +14,7 @@ const postRoutes = require('./routes/postRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const sceneRoutes = require('./routes/sceneRoutes');
 const chapterRoutes = require('./routes/chapterRoutes');
+const projectRoutes = require('./routes/projectRoutes');
 
 const app = express();
 
@@ -22,7 +23,8 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'https://blog.buildwithhimanshu.com',
-    'https://codeanimo.buildwithhimanshu.com'
+    'https://codeanimo.buildwithhimanshu.com',
+    'https://zynki.online'
   ],
   credentials: true
 }));
@@ -40,6 +42,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/scenes', sceneRoutes);
 app.use('/api/chapters', chapterRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

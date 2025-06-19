@@ -66,4 +66,71 @@ exports.getChaptersForSection = async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
+};
+
+exports.createSection = async (req, res) => {
+  try {
+    const { title, slug, order, courseId } = req.body;
+    
+    // Validate required fields
+    if (!title || !slug || !order || !courseId) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide title, slug, order, and courseId'
+      });
+    }
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found'
+      });
+    }
+
+    // Create section
+    const section = await Section.create({
+      title,
+      slug,
+      order,
+      courseId
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: section
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+// Delete a section and all related chapters and scenes
+exports.deleteSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({ status: 'fail', message: 'Section not found' });
+    }
+
+    // Find all chapters in this section
+    const chapters = await Chapter.find({ sectionId: id });
+    const chapterIds = chapters.map(ch => ch._id);
+
+    // Delete all scenes in these chapters
+    const Scene = require('../models/Scene');
+    await Scene.deleteMany({ chapterId: { $in: chapterIds } });
+
+    // Delete all chapters in this section
+    await Chapter.deleteMany({ sectionId: id });
+
+    // Delete the section itself
+    await Section.findByIdAndDelete(id);
+
+    res.status(204).json({ status: 'success', data: null });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
 }; 

@@ -1,0 +1,602 @@
+I want to create a set of educational scenes for a chapter in a System Design course. Please generate [NUMBER] scenes for the chapter titled "[CHAPTER_TITLE]". Each scene should:
+
+1. Have a unique, focused title that fits the chapter's theme.
+2. Include a concise dialogue (1-2 sentences) that clearly explains a key concept, best practice, or insight relevant to the chapter.
+3. Provide a drawFunction in JavaScript (for a Canvas context) that visually represents the main idea of the scene. Use simple shapes, arrows, and labels. Follow this color scheme:
+   - Blue: #2563eb
+   - Purple: #6d28d9
+   - Green: #059669
+   - Orange: #f59e42
+   - Red: #dc2626
+4. Ensure each scene covers a different aspect of the topic, avoids repetition, and flows logically from introduction to more advanced or practical points.
+5. The scenes should be suitable for both interview preparation and real-world learning, and should not include self-promotion or irrelevant information.
+
+**Example structure for the scenes:**
+- Scene 1: Introduction to the chapter's main idea
+- Scene 2: Why this topic matters
+- Scene 3: Key challenges or misconceptions
+- Scene 4: Best practices or strategies
+- Scene 5: Visualizing the system/components
+- Scene 6: Handling growth or scaling
+- Scene 7: Dealing with failures or trade-offs
+- Scene 8: Communication and collaboration tips
+- Scene 9: Who benefits from this knowledge
+- Scene 10: Key principles and terminology
+
+**Output format for each scene:**
+- Title: [Scene Title]
+- Dialogue: [Concise explanation]
+- drawFunction: [JavaScript function as a string, properly escaped for JSON]
+
+**Example request:**
+Generate 10 scenes for the chapter "Getting Ready" in a System Design course, following the above instructions.
+
+**Additional notes:**
+- Do not include self-promotion or personal anecdotes.
+- Focus on clarity, brevity, and practical value.
+- Make sure the drawFunction is valid JavaScript and ready to use in a Canvas context.
+
+
+Testing API endpoints...
+
+GET /courses: {
+  status: 'success',
+  data: [
+    {
+      _id: '6820b6c9d80c2c0b67b07dd2',
+      title: 'System Design',
+      slug: 'system-design',
+      description: 'System Design course',
+      createdAt: '2025-05-11T14:40:09.787Z',
+      updatedAt: '2025-05-11T14:40:09.787Z',
+      __v: 0
+    }
+  ]
+}
+
+GET /courses/system-design/sections: {
+  status: 'success',
+  data: [
+    {
+      _id: '6820b6c9d80c2c0b67b07dd4',
+      title: 'Getting Started',
+      slug: 'getting-started',
+      order: 1,
+      courseId: '6820b6c9d80c2c0b67b07dd2',
+      createdAt: '2025-05-11T14:40:09.828Z',
+      updatedAt: '2025-05-11T14:40:09.828Z',
+      __v: 0
+    },
+    {
+      _id: '6820b943540b447034dec7ff',
+      title: 'Advanced Concepts',
+      slug: 'advanced-concepts',
+      order: 2,
+      courseId: '6820b6c9d80c2c0b67b07dd2',
+      createdAt: '2025-05-11T14:50:43.520Z',
+      updatedAt: '2025-05-11T14:50:43.520Z',
+      __v: 0
+    },
+    {
+      _id: '6820b944540b447034dec811',
+      title: 'Case Studies',
+      slug: 'case-studies',
+      order: 3,
+      courseId: '6820b6c9d80c2c0b67b07dd2',
+      createdAt: '2025-05-11T14:50:44.070Z',
+      updatedAt: '2025-05-11T14:50:44.070Z',
+      __v: 0
+    }
+  ]
+}
+
+GET /sections/getting-started/chapters: {
+  status: 'success',
+  data: [
+    {
+      _id: '6820b6c9d80c2c0b67b07dd6',
+      title: 'Caching',
+      slug: 'caching',
+      order: 1,
+      sectionId: '6820b6c9d80c2c0b67b07dd4',
+      createdAt: '2025-05-11T14:40:09.869Z',
+      updatedAt: '2025-05-11T14:40:09.869Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6cad80c2c0b67b07ddf',
+      title: 'CDN',
+      slug: 'cdn',
+      order: 2,
+      sectionId: '6820b6c9d80c2c0b67b07dd4',
+      createdAt: '2025-05-11T14:40:10.004Z',
+      updatedAt: '2025-05-11T14:40:10.004Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6cad80c2c0b67b07de7',
+      title: 'Database',
+      slug: 'database',
+      order: 3,
+      sectionId: '6820b6c9d80c2c0b67b07dd4',
+      createdAt: '2025-05-11T14:40:10.081Z',
+      updatedAt: '2025-05-11T14:40:10.081Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6cad80c2c0b67b07def',
+      title: 'Load Balancer',
+      slug: 'load-balancer',
+      order: 4,
+      sectionId: '6820b6c9d80c2c0b67b07dd4',
+      createdAt: '2025-05-11T14:40:10.175Z',
+      updatedAt: '2025-05-11T14:40:10.175Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6cad80c2c0b67b07df7',
+      title: 'Message Queue',
+      slug: 'message-queue',
+      order: 5,
+      sectionId: '6820b6c9d80c2c0b67b07dd4',
+      createdAt: '2025-05-11T14:40:10.251Z',
+      updatedAt: '2025-05-11T14:40:10.251Z',
+      __v: 0
+    }
+  ]
+}
+
+GET /chapters/caching/scenes: {
+  status: 'success',
+  data: [
+    {
+      _id: '6820b6c9d80c2c0b67b07dd8',
+      title: 'Caching Scene 1',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: 'Caching stores frequently accessed data in memory for faster retrieval.',
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw database\n' +
+        "        ctx.strokeStyle = '#2563eb';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(40, 60, 100, 60);\n' +
+        "        ctx.font = '16px sans-serif';\n" +
+        "        ctx.fillStyle = '#2563eb';\n" +
+        "        ctx.fillText('Database', 55, 95);\n" +
+        '        // Draw cache\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(200, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Cache', 230, 95);\n" +
+        '        // Draw application\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(360, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Application', 370, 95);\n" +
+        '      }\n' +
+        '    }',
+      order: 1,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.923Z',
+      updatedAt: '2025-05-11T14:40:09.923Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07dd9',
+      title: 'Caching Scene 2',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: 'When data is requested, the cache is checked first.',
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw database\n' +
+        "        ctx.strokeStyle = '#2563eb';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(40, 60, 100, 60);\n' +
+        "        ctx.font = '16px sans-serif';\n" +
+        "        ctx.fillStyle = '#2563eb';\n" +
+        "        ctx.fillText('Database', 55, 95);\n" +
+        '        // Draw cache\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(200, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Cache', 230, 95);\n" +
+        '        // Draw application\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(360, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Application', 370, 95);\n" +
+        '\n' +
+        '        // Draw request flow\n' +
+        "        ctx.strokeStyle = '#f59e42';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Application to Cache\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(360, 90);\n' +
+        '        ctx.lineTo(200, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add arrow\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(210, 85);\n' +
+        '        ctx.lineTo(200, 90);\n' +
+        '        ctx.lineTo(210, 95);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add label\n' +
+        "        ctx.font = 'bold 13px sans-serif';\n" +
+        "        ctx.fillStyle = '#f59e42';\n" +
+        "        ctx.fillText('Check Cache', 250, 85);\n" +
+        '      }\n' +
+        '    }',
+      order: 2,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.931Z',
+      updatedAt: '2025-05-11T14:40:09.931Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07dda',
+      title: 'Caching Scene 3',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: "If the data is in cache (cache hit), it's returned immediately.",
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw database\n' +
+        "        ctx.strokeStyle = '#2563eb';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(40, 60, 100, 60);\n' +
+        "        ctx.font = '16px sans-serif';\n" +
+        "        ctx.fillStyle = '#2563eb';\n" +
+        "        ctx.fillText('Database', 55, 95);\n" +
+        '        // Draw cache\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(200, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Cache', 230, 95);\n" +
+        '        // Draw application\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(360, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Application', 370, 95);\n" +
+        '\n' +
+        '        // Draw cache hit\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Cache to Application\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(200, 90);\n' +
+        '        ctx.lineTo(360, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add arrow\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(350, 85);\n' +
+        '        ctx.lineTo(360, 90);\n' +
+        '        ctx.lineTo(350, 95);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add label\n' +
+        "        ctx.font = 'bold 13px sans-serif';\n" +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Cache Hit', 250, 85);\n" +
+        '      }\n' +
+        '    }',
+      order: 3,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.932Z',
+      updatedAt: '2025-05-11T14:40:09.932Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07ddb',
+      title: 'Caching Scene 4',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: "If data is not in cache (cache miss), it's fetched from the database and stored in cache.",
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw database\n' +
+        "        ctx.strokeStyle = '#2563eb';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(40, 60, 100, 60);\n' +
+        "        ctx.font = '16px sans-serif';\n" +
+        "        ctx.fillStyle = '#2563eb';\n" +
+        "        ctx.fillText('Database', 55, 95);\n" +
+        '        // Draw cache\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(200, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Cache', 230, 95);\n" +
+        '        // Draw application\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(360, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Application', 370, 95);\n" +
+        '\n' +
+        '        // Draw cache miss flow\n' +
+        "        ctx.strokeStyle = '#f59e42';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Application to Database\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(360, 90);\n' +
+        '        ctx.lineTo(40, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        // Database to Cache\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(40, 90);\n' +
+        '        ctx.lineTo(200, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        // Cache to Application\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(200, 90);\n' +
+        '        ctx.lineTo(360, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add labels\n' +
+        "        ctx.font = 'bold 13px sans-serif';\n" +
+        "        ctx.fillStyle = '#f59e42';\n" +
+        "        ctx.fillText('Cache Miss', 250, 85);\n" +
+        "        ctx.fillText('Fetch & Store', 120, 85);\n" +
+        '      }\n' +
+        '    }',
+      order: 4,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.934Z',
+      updatedAt: '2025-05-11T14:40:09.934Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07ddc',
+      title: 'Caching Scene 5',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: 'Cache invalidation strategies help keep cached data fresh and consistent.',
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw cache\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(200, 60, 100, 60);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Cache', 230, 95);\n" +
+        '        // Draw invalidation strategies\n' +
+        "        ctx.strokeStyle = '#f59e42';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        "        ctx.font = 'bold 14px sans-serif';\n" +
+        "        ctx.fillStyle = '#f59e42';\n" +
+        "        ctx.fillText('TTL', 50, 40);\n" +
+        "        ctx.fillText('Write-Through', 150, 40);\n" +
+        "        ctx.fillText('Write-Back', 300, 40);\n" +
+        '        // Draw arrows\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(50, 45);\n' +
+        '        ctx.lineTo(250, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(150, 45);\n' +
+        '        ctx.lineTo(250, 90);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(300, 45);\n' +
+        '        ctx.lineTo(250, 90);\n' +
+        '        ctx.stroke();\n' +
+        '      }\n' +
+        '    }',
+      order: 5,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.934Z',
+      updatedAt: '2025-05-11T14:40:09.934Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07ddd',
+      title: 'Caching Scene 6',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: 'Different types of caches serve different purposes in a system.',
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw cache types\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Browser Cache\n' +
+        '        ctx.strokeRect(40, 40, 120, 40);\n' +
+        "        ctx.font = '14px sans-serif';\n" +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Browser Cache', 50, 65);\n" +
+        '        // CDN Cache\n' +
+        '        ctx.strokeRect(40, 100, 120, 40);\n' +
+        "        ctx.fillText('CDN Cache', 60, 125);\n" +
+        '        // Application Cache\n' +
+        '        ctx.strokeRect(40, 160, 120, 40);\n' +
+        "        ctx.fillText('App Cache', 60, 185);\n" +
+        '        // Database Cache\n' +
+        '        ctx.strokeRect(40, 220, 120, 40);\n' +
+        "        ctx.fillText('DB Cache', 60, 245);\n" +
+        '        // Draw connecting lines\n' +
+        "        ctx.strokeStyle = '#f59e42';\n" +
+        '        ctx.lineWidth = 1;\n' +
+        '        ctx.setLineDash([5, 5]);\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(160, 60);\n' +
+        '        ctx.lineTo(280, 60);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(160, 120);\n' +
+        '        ctx.lineTo(280, 120);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(160, 180);\n' +
+        '        ctx.lineTo(280, 180);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(160, 240);\n' +
+        '        ctx.lineTo(280, 240);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.setLineDash([]);\n' +
+        '        // Draw system\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(280, 40, 120, 200);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('System', 320, 150);\n" +
+        '      }\n' +
+        '    }',
+      order: 6,
+      clearBeforeDraw: false,
+      createdAt: '2025-05-11T14:40:09.934Z',
+      updatedAt: '2025-05-11T14:40:09.934Z',
+      __v: 0
+    },
+    {
+      _id: '6820b6c9d80c2c0b67b07dde',
+      title: 'Distributed System Abstractions',
+      chapterId: '6820b6c9d80c2c0b67b07dd6',
+      chapter: 'Caching',
+      dialogue: 'Distributed system abstractions help engineers scale applications and manage complexity as user numbers grow.',
+      drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+        '        // Draw users\n' +
+        "        ctx.strokeStyle = '#2563eb';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        ctx.strokeRect(40, 40, 80, 40);\n' +
+        "        ctx.font = '14px sans-serif';\n" +
+        "        ctx.fillStyle = '#2563eb';\n" +
+        "        ctx.fillText('Users', 55, 65);\n" +
+        '\n' +
+        '        // Draw abstraction layer\n' +
+        "        ctx.strokeStyle = '#6d28d9';\n" +
+        '        ctx.lineWidth = 3;\n' +
+        '        ctx.strokeRect(160, 20, 120, 80);\n' +
+        "        ctx.fillStyle = '#6d28d9';\n" +
+        "        ctx.fillText('Abstraction', 180, 65);\n" +
+        '\n' +
+        '        // Draw system components\n' +
+        "        ctx.strokeStyle = '#059669';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Load Balancer\n' +
+        '        ctx.strokeRect(320, 20, 100, 40);\n' +
+        "        ctx.fillStyle = '#059669';\n" +
+        "        ctx.fillText('Load Balancer', 330, 45);\n' +
+        '        // Database\n' +
+        '        ctx.strokeRect(320, 70, 100, 40);\n' +
+        "        ctx.fillText('Database', 340, 95);\n" +
+        '        // Cache\n' +
+        '        ctx.strokeRect(320, 120, 100, 40);\n' +
+        "        ctx.fillText('Cache', 350, 145);\n" +
+        '        // Message Queue\n' +
+        '        ctx.strokeRect(320, 170, 100, 40);\n' +
+        "        ctx.fillText('Message Queue', 325, 195);\n" +
+        '\n' +
+        '        // Draw connecting arrows\n' +
+        "        ctx.strokeStyle = '#f59e42';\n" +
+        '        ctx.lineWidth = 2;\n' +
+        '        // Users to Abstraction\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(120, 60);\n' +
+        '        ctx.lineTo(160, 60);\n' +
+        '        ctx.stroke();\n' +
+        '        // Abstraction to Components\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(280, 60);\n' +
+        '        ctx.lineTo(320, 60);\n' +
+        '        ctx.stroke();\n' +
+        '        // Add arrow heads\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(150, 55);\n' +
+        '        ctx.lineTo(160, 60);\n' +
+        '        ctx.lineTo(150, 65);\n' +
+        '        ctx.stroke();\n' +
+        '        ctx.beginPath();\n' +
+        '        ctx.moveTo(310, 55);\n' +
+        '        ctx.lineTo(320, 60);\n' +
+        '        ctx.lineTo(310, 65);\n' +
+        '        ctx.stroke();\n' +
+        '\n' +
+        '        // Add labels\n' +
+        "        ctx.font = 'bold 12px sans-serif';\n" +
+        "        ctx.fillStyle = '#f59e42';\n" +
+    }
+  ]
+}
+
+GET /courses/system-design: {
+  status: 'success',
+  data: {
+    _id: '6820b6c9d80c2c0b67b07dd2',
+    title: 'System Design',
+    slug: 'system-design',
+    description: 'System Design course',
+    createdAt: '2025-05-11T14:40:09.787Z',
+    updatedAt: '2025-05-11T14:40:09.787Z',
+    __v: 0
+  }
+}
+
+
+GET /sections/getting-started: {
+  status: 'success',
+  data: {
+    _id: '6820b6c9d80c2c0b67b07dd4',
+    title: 'Getting Started',
+    slug: 'getting-started',
+    order: 1,
+    courseId: '6820b6c9d80c2c0b67b07dd2',
+    createdAt: '2025-05-11T14:40:09.828Z',
+    updatedAt: '2025-05-11T14:40:09.828Z',
+    __v: 0
+  }
+}
+
+
+GET /chapters/caching: {
+  status: 'success',
+  data: {
+    _id: '6820b6c9d80c2c0b67b07dd6',
+    title: 'Caching',
+    slug: 'caching',
+    order: 1,
+    sectionId: '6820b6c9d80c2c0b67b07dd4',
+    createdAt: '2025-05-11T14:40:09.869Z',
+    updatedAt: '2025-05-11T14:40:09.869Z',
+    __v: 0
+  }
+}
+
+
+GET /scenes/6820b6c9d80c2c0b67b07dd8: {
+  status: 'success',
+  data: {
+    _id: '6820b6c9d80c2c0b67b07dd8',
+    title: 'Caching Scene 1',
+    chapterId: '6820b6c9d80c2c0b67b07dd6',
+    chapter: 'Caching',
+    dialogue: 'Caching stores frequently accessed data in memory for faster retrieval.',
+    drawFunction: '(ctx: CanvasRenderingContext2D) => {\n' +
+      '        // Draw database\n' +
+      "        ctx.strokeStyle = '#2563eb';\n" +
+      '        ctx.lineWidth = 2;\n' +
+      '        ctx.strokeRect(40, 60, 100, 60);\n' +
+      "        ctx.font = '16px sans-serif';\n" +
+      "        ctx.fillStyle = '#2563eb';\n" +
+      "        ctx.fillText('Database', 55, 95);\n" +
+      '        // Draw cache\n' +
+      "        ctx.strokeStyle = '#6d28d9';\n" +
+      '        ctx.lineWidth = 3;\n' +
+      '        ctx.strokeRect(200, 60, 100, 60);\n' +
+      "        ctx.fillStyle = '#6d28d9';\n" +
+      "        ctx.fillText('Cache', 230, 95);\n" +
+      '        // Draw application\n' +
+      "        ctx.strokeStyle = '#059669';\n" +
+      '        ctx.lineWidth = 2;\n' +
+      '        ctx.strokeRect(360, 60, 100, 60);\n' +
+      "        ctx.fillStyle = '#059669';\n" +
+      "        ctx.fillText('Application', 370, 95);\n" +
+      '      }\n' +
+      '    }',
+    order: 1,
+    clearBeforeDraw: false,
+    createdAt: '2025-05-11T14:40:09.923Z',
+    updatedAt: '2025-05-11T14:40:09.923Z',
+    __v: 0
+  }
+}
