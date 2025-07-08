@@ -38,7 +38,9 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'http://localhost:3000',
   'https://codeanimo.buildwithhimanshu.com',
-  'https://zynki.online'
+  'https://zynki.online',
+  'http://localhost:3000', // Portfolio development
+  'https://portfolio.buildwithhimanshu.com' // Portfolio production
 ];
 app.use(cors({
   origin: function(origin, callback) {
@@ -66,6 +68,8 @@ app.use('/api/types', require('./routes/typeRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/api/contact', require('./routes/contactRoutes'));
 
 // Course hierarchy routes
 app.use('/api/courses', require('./routes/courseRoutes'));
