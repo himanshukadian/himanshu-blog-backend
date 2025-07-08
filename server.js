@@ -70,6 +70,7 @@ app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/contact', require('./routes/contactRoutes'));
+app.use('/api/scheduling', require('./routes/schedulingRoutes'));
 
 // Course hierarchy routes
 app.use('/api/courses', require('./routes/courseRoutes'));
