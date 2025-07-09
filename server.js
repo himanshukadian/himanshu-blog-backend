@@ -60,6 +60,9 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Static files for PDFs
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/articles', require('./routes/articleRoutes'));
@@ -71,6 +74,7 @@ app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/scheduling', require('./routes/schedulingRoutes'));
+app.use('/api/resume', require('./routes/resumeRoutes'));
 
 // Course hierarchy routes
 app.use('/api/courses', require('./routes/courseRoutes'));
