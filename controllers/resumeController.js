@@ -916,11 +916,24 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
           '--disable-ipc-flooding-protection'
         );
         
-        // Use system Chrome if available
-        if (process.env.GOOGLE_CHROME_BIN) {
-          launchOptions.executablePath = process.env.GOOGLE_CHROME_BIN;
-        } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-          launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        // Try different Chrome executable paths in order of preference
+        const chromePaths = [
+          process.env.GOOGLE_CHROME_BIN,
+          process.env.PUPPETEER_EXECUTABLE_PATH,
+          '/app/.apt/usr/bin/google-chrome-stable',
+          '/app/.apt/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable',
+          '/usr/bin/google-chrome',
+          '/usr/bin/chromium-browser',
+          '/usr/bin/chromium'
+        ];
+        
+        for (const chromePath of chromePaths) {
+          if (chromePath) {
+            launchOptions.executablePath = chromePath;
+            console.log(`Trying Chrome executable at: ${chromePath}`);
+            break;
+          }
         }
       }
 

@@ -9,7 +9,7 @@
     "test": "jest --detectOpenHandles",
     "lint": "eslint .",
     "seed": "node scripts/seed.js",
-    "postinstall": "npx puppeteer browsers install chrome",
+    "postinstall": "if [ \"$PUPPETEER_SKIP_CHROMIUM_DOWNLOAD\" != \"true\" ]; then npx puppeteer browsers install chrome; fi",
     "check-puppeteer": "node scripts/check-puppeteer.js"
   },
   "keywords": [

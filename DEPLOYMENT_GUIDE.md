@@ -52,15 +52,14 @@ The fix involves three main components:
 
 ### For Existing Heroku Apps
 
-1. Add the Puppeteer buildpack:
+1. Add the official Heroku Google Chrome buildpack:
    ```bash
-   heroku buildpacks:add https://github.com/jontewks/puppeteer-heroku-buildpack.git
+   heroku buildpacks:add https://github.com/heroku/heroku-buildpack-google-chrome
    ```
 
 2. Set the required environment variables:
    ```bash
    heroku config:set PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-   heroku config:set PUPPETEER_EXECUTABLE_PATH=/app/.apt/usr/bin/google-chrome-stable
    ```
 
 3. Deploy your code:
@@ -69,6 +68,27 @@ The fix involves three main components:
    git commit -m "Fix Puppeteer Chrome configuration for Heroku"
    git push heroku main
    ```
+
+## Quick Fix for "Browser not found" Error
+
+If you're getting the "Browser was not found at the configured executablePath" error:
+
+```bash
+# 1. Clear existing buildpacks and add them in correct order
+heroku buildpacks:clear
+heroku buildpacks:add heroku/nodejs
+heroku buildpacks:add https://github.com/heroku/heroku-buildpack-google-chrome
+
+# 2. Set environment variable
+heroku config:set PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# 3. Force rebuild
+git commit --allow-empty -m "Force rebuild with Chrome buildpack"
+git push heroku main
+
+# 4. Test the fix
+heroku run npm run check-puppeteer
+```
 
 ## Testing the Fix
 
@@ -101,9 +121,18 @@ This will run a comprehensive check of the Puppeteer installation and PDF genera
 
 ### Common Issues:
 
+- **Chrome not found at executable path**: 
+  - Run `heroku run npm run check-puppeteer` to see which Chrome paths are available
+  - Ensure the Google Chrome buildpack is installed correctly
+  - The application now tries multiple Chrome paths automatically
+  
 - **Memory limits**: Heroku free tier has limited memory. Consider upgrading to Basic or higher.
+
 - **Timeout issues**: The PDF generation now has 30-second timeouts. For complex resumes, this might need adjustment.
+
 - **Missing fonts**: Some fonts might not be available in the Heroku environment.
+
+- **Buildpack order matters**: Ensure the Chrome buildpack is added AFTER the Node.js buildpack
 
 ## Local Development
 

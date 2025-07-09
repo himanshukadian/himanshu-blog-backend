@@ -37,10 +37,34 @@ async function checkPuppeteer() {
         '--disable-ipc-flooding-protection'
       );
       
-      if (process.env.GOOGLE_CHROME_BIN) {
-        launchOptions.executablePath = process.env.GOOGLE_CHROME_BIN;
-      } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      // Try different Chrome executable paths in order of preference
+      const chromePaths = [
+        process.env.GOOGLE_CHROME_BIN,
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/app/.apt/usr/bin/google-chrome-stable',
+        '/app/.apt/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium'
+      ];
+      
+      console.log('\n🔍 Checking available Chrome paths:');
+      const fs = require('fs');
+      
+      for (const chromePath of chromePaths) {
+        if (chromePath) {
+          const exists = fs.existsSync(chromePath);
+          console.log(`  ${chromePath}: ${exists ? '✅ Found' : '❌ Not found'}`);
+          if (exists && !launchOptions.executablePath) {
+            launchOptions.executablePath = chromePath;
+            console.log(`  → Using: ${chromePath}`);
+          }
+        }
+      }
+      
+      if (!launchOptions.executablePath) {
+        console.log('\n⚠️  No Chrome executable found, using default Puppeteer Chrome');
       }
     }
 
