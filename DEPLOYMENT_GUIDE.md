@@ -52,9 +52,9 @@ The fix involves three main components:
 
 ### For Existing Heroku Apps
 
-1. Add the official Heroku Google Chrome buildpack:
+1. Add the official Heroku Chrome for Testing buildpack:
    ```bash
-   heroku buildpacks:add https://github.com/heroku/heroku-buildpack-google-chrome
+   heroku buildpacks:add heroku-community/chrome-for-testing
    ```
 
 2. Set the required environment variables:
@@ -77,7 +77,7 @@ If you're getting the "Browser was not found at the configured executablePath" e
 # 1. Clear existing buildpacks and add them in correct order
 heroku buildpacks:clear
 heroku buildpacks:add heroku/nodejs
-heroku buildpacks:add https://github.com/heroku/heroku-buildpack-google-chrome
+heroku buildpacks:add heroku-community/chrome-for-testing
 
 # 2. Set environment variable
 heroku config:set PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
@@ -123,8 +123,9 @@ This will run a comprehensive check of the Puppeteer installation and PDF genera
 
 - **Chrome not found at executable path**: 
   - Run `heroku run npm run check-puppeteer` to see which Chrome paths are available
-  - Ensure the Google Chrome buildpack is installed correctly
-  - The application now tries multiple Chrome paths automatically
+  - Ensure the Chrome for Testing buildpack is installed correctly
+  - The application now tries multiple Chrome paths automatically including PATH resolution
+  - The new buildpack installs Chrome at `/app/.chrome-for-testing/chrome-linux64/chrome` and in PATH as `chrome`
   
 - **Memory limits**: Heroku free tier has limited memory. Consider upgrading to Basic or higher.
 
@@ -153,8 +154,10 @@ The following environment variables are used:
 - `NODE_ENV`: Set to 'production' in production
 - `DYNO`: Automatically set by Heroku
 - `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`: Skip downloading Chrome during npm install
-- `PUPPETEER_EXECUTABLE_PATH`: Path to Chrome executable
+- `PUPPETEER_EXECUTABLE_PATH`: Path to Chrome executable (fallback)
 - `GOOGLE_CHROME_BIN`: Alternative Chrome path (fallback)
+
+**Note**: The new Chrome for Testing buildpack automatically adds Chrome to PATH, so explicit executable paths are usually not needed.
 
 ## Performance Considerations
 

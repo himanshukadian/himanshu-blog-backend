@@ -41,6 +41,7 @@ async function checkPuppeteer() {
       const chromePaths = [
         process.env.GOOGLE_CHROME_BIN,
         process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/app/.chrome-for-testing/chrome-linux64/chrome', // New Chrome for Testing buildpack
         '/app/.apt/usr/bin/google-chrome-stable',
         '/app/.apt/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
@@ -49,22 +50,34 @@ async function checkPuppeteer() {
         '/usr/bin/chromium'
       ];
       
-      console.log('\n🔍 Checking available Chrome paths:');
+      console.log('\n🔍 Checking if Chrome is in PATH:');
       const fs = require('fs');
+      const { execSync } = require('child_process');
       
-      for (const chromePath of chromePaths) {
-        if (chromePath) {
-          const exists = fs.existsSync(chromePath);
-          console.log(`  ${chromePath}: ${exists ? '✅ Found' : '❌ Not found'}`);
-          if (exists && !launchOptions.executablePath) {
-            launchOptions.executablePath = chromePath;
-            console.log(`  → Using: ${chromePath}`);
+      try {
+        const chromeInPath = execSync('which chrome', { encoding: 'utf8' }).trim();
+        console.log(`  Chrome in PATH: ✅ Found at ${chromeInPath}`);
+        launchOptions.executablePath = chromeInPath;
+      } catch (error) {
+        console.log('  Chrome in PATH: ❌ Not found');
+        
+        console.log('\n🔍 Checking available Chrome paths:');
+        for (const chromePath of chromePaths) {
+          if (chromePath) {
+            const exists = fs.existsSync(chromePath);
+            console.log(`  ${chromePath}: ${exists ? '✅ Found' : '❌ Not found'}`);
+            if (exists && !launchOptions.executablePath) {
+              launchOptions.executablePath = chromePath;
+              console.log(`  → Using: ${chromePath}`);
+            }
           }
         }
       }
       
       if (!launchOptions.executablePath) {
         console.log('\n⚠️  No Chrome executable found, using default Puppeteer Chrome');
+      } else {
+        console.log(`\n✅ Selected Chrome executable: ${launchOptions.executablePath}`);
       }
     }
 

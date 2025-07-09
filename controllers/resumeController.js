@@ -920,6 +920,7 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
         const chromePaths = [
           process.env.GOOGLE_CHROME_BIN,
           process.env.PUPPETEER_EXECUTABLE_PATH,
+          '/app/.chrome-for-testing/chrome-linux64/chrome', // New Chrome for Testing buildpack
           '/app/.apt/usr/bin/google-chrome-stable',
           '/app/.apt/usr/bin/google-chrome',
           '/usr/bin/google-chrome-stable',
@@ -928,11 +929,24 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
           '/usr/bin/chromium'
         ];
         
-        for (const chromePath of chromePaths) {
-          if (chromePath) {
-            launchOptions.executablePath = chromePath;
-            console.log(`Trying Chrome executable at: ${chromePath}`);
-            break;
+        // Check if Chrome is available in PATH (preferred for new buildpack)
+        const fs = require('fs');
+        const { execSync } = require('child_process');
+        
+        try {
+          const chromeInPath = execSync('which chrome', { encoding: 'utf8' }).trim();
+          if (chromeInPath) {
+            launchOptions.executablePath = chromeInPath;
+            console.log(`Using Chrome from PATH: ${chromeInPath}`);
+          }
+        } catch (error) {
+          // Chrome not in PATH, try explicit paths
+          for (const chromePath of chromePaths) {
+            if (chromePath && fs.existsSync(chromePath)) {
+              launchOptions.executablePath = chromePath;
+              console.log(`Using Chrome executable at: ${chromePath}`);
+              break;
+            }
           }
         }
       }
