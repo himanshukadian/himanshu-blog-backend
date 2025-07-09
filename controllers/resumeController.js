@@ -888,13 +888,54 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
   async generatePDFFromHTML(html) {
     let browser;
     try {
-      browser = await puppeteer.launch({
+      // Configuration for different environments
+      const isProduction = process.env.NODE_ENV === 'production';
+      const isHeroku = !!process.env.DYNO;
+      
+      let launchOptions = {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu'
+        ]
+      };
+
+      // Additional configuration for Heroku
+      if (isHeroku || isProduction) {
+        launchOptions.args.push(
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection'
+        );
+        
+        // Use system Chrome if available
+        if (process.env.GOOGLE_CHROME_BIN) {
+          launchOptions.executablePath = process.env.GOOGLE_CHROME_BIN;
+        } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+          launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+      }
+
+      browser = await puppeteer.launch(launchOptions);
       
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      
+      // Set a reasonable viewport and user agent
+      await page.setViewport({ width: 1200, height: 800 });
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      
+      await page.setContent(html, { 
+        waitUntil: 'networkidle0',
+        timeout: 30000 
+      });
       
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -904,10 +945,14 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
           right: '0.5in',
           bottom: '0.5in',
           left: '0.5in'
-        }
+        },
+        timeout: 30000
       });
       
       return pdfBuffer;
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      throw new Error(`PDF generation failed: ${error.message}`);
     } finally {
       if (browser) {
         await browser.close();

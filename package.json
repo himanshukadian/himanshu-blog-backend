@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "test": "jest --detectOpenHandles",
     "lint": "eslint .",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "postinstall": "npx puppeteer browsers install chrome",
+    "check-puppeteer": "node scripts/check-puppeteer.js"
   },
   "keywords": [
     "blog",
