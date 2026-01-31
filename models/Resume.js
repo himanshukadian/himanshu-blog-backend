@@ -38,6 +38,7 @@ const resumeSchema = new mongoose.Schema({
   phone: String,
   linkedin: String,
   github: String,
+  portfolio: String,
   summary: String,
   
   // Resume sections

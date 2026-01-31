@@ -35,15 +35,16 @@ class ResumeController {
         name: 'Himanshu Chaudhary',
         title: 'Software Engineer II',
         location: 'Bulandshahr, UP',
-        email: 'himanshu.c.official@gmail.com',
-        phone: '+91-9761744048',
-        linkedin: 'https://www.linkedin.com/in/himanshucofficial/',
-        github: 'https://github.com/himanshukadian',
-        summary: 'Software Engineer with 3+ years of experience in backend and full-stack development, specializing in Java and Spring Boot. Successfully delivered scalable solutions, including AI-powered chat assistants and optimized systems that reduce operational costs. Collaborates effectively with cross-functional teams to drive innovation, enhance performance, and ensure platform stability.',
+        email: 'himanshuofficialnitw@gmail.com',
+        phone: '+91-7983713217',
+        linkedin: 'https://www.linkedin.com/in/himanshuofficialnitw/',
+        github: 'https://github.com/himanshuofficialnitw',
+        portfolio: 'https://portfolio.buildwithhimanshu.com/',
+        summary: 'Backend Software Engineer with 4+ years of experience building scalable, distributed, and high-performance backend systems for large-scale consumer platforms. Strong background in microservices architecture, REST APIs, cloud-native development, system design, and data pipelines. Proven success in reducing operational costs, improving onboarding time, and automating business workflows. Proficient in Python, Java, SQL, AWS, Kafka, DynamoDB, Docker, Kubernetes, and Generative AI solutions based on Large Language Models.',
         skills: {
           languages: ['Python', 'Java', 'C++', 'JavaScript', 'SQL'],
-          technologies: ['Spring Boot', 'Hibernate', 'JDBC', 'AI/GenAI', 'Docker', 'Kubernetes', 'Microservice Architecture', 'System Design', 'React', 'Node.js'],
-          developerTools: ['VS Code', 'IntelliJ', 'GCP', 'AWS', 'Kafka', 'DynamoDB', 'Lambda', 'Cloud Functions', 'Jenkins'],
+          technologies: ['Spring Boot', 'Django', 'Flask', 'Docker', 'Kubernetes', 'Microservices', 'System Design', 'REST APIs', 'Distributed Systems', 'Data Pipelines', 'Observability', 'Performance Optimization', 'Security', 'Generative AI', 'Large Language Models'],
+          developerTools: ['VS Code', 'IntelliJ', 'AWS', 'Kafka', 'DynamoDB', 'Lambda', 'Cloud Functions'],
           databases: ['MongoDB', 'NoSQL', 'MySQL', 'PostgreSQL'],
           others: ['Automation', 'Building Tools']
         },
@@ -52,23 +53,24 @@ class ResumeController {
             company: 'Wayfair',
             role: 'Software Engineer II',
             location: 'Bangalore, Karnataka',
-            duration: 'Apr 2023 - Present',
+            duration: 'April 2023 – Present',
             highlights: [
-              'Designed a Lane Management System optimizing lane selection based on 50-70 parameters, reducing fulfillment costs by 20%.',
-              'Built Voyager, an AI-powered assistant translating English to SQL queries for business collaboration.',
-              'Engineered LMP Insight tool processing 50K events/min for metrics tracking and triage reduction.',
-              'Redesigned label printing platform for 100 labels/sec and added automated testing pipelines.',
-              'Created unified label printing endpoint cutting onboarding time to 3 weeks and improved PII data handling.'
+              'Implemented a Lane Management System optimizing routing decisions across 50–70 operational, cost, and performance parameters, reducing fulfillment costs by 20% and improving delivery SLA adherence by 15%.',
+              'Developed an AI-powered analytics assistant that converts natural language queries into optimized SQL, increasing self-service analytics usage and reducing ad-hoc data request turnaround time by 30%.',
+              'Built a high-throughput monitoring and insights platform processing 50,000+ events per minute with distributed microservices, enabling real-time observability and cutting incident triage time from hours to minutes.',
+              'Modernized the label printing platform to support 100 labels per second with low latency and high availability, and introduced automated unit, integration, and end-to-end testing pipelines, improving release stability.',
+              'Created a unified label printing API to standardize integrations across multiple clients, reducing onboarding time from 1–2 months to 3 weeks, and enforcing secure PII data handling with access control and compliance practices.',
+              'Designed and scaled a multi-tenant, cloud-based AI workflow orchestration platform, transforming a local single-user tool into a distributed backend system with asynchronous execution, real-time observability, and context-aware orchestration, significantly improving developer productivity and enabling reliable automation for bug analysis, test generation, and code intelligence.'
             ]
           },
           {
             company: 'Amazon',
-            role: 'SDE I',
+            role: 'SDE 1',
             location: 'Bangalore, Karnataka',
-            duration: 'Jul 2022 - Mar 2023',
+            duration: 'July 2022 – March 2023',
             highlights: [
-              'Built a pipeline migrating 1M customers across marketplaces, automating and improving backend integration.',
-              'Migrated backend services reducing IMR costs by 50% with improved performance and reliability.'
+              'Built an automated customer migration pipeline to transition 1M+ users between marketplaces with high data consistency and zero manual intervention.',
+              'Migrated core backend services from a legacy architecture to a modern scalable design, lowering infrastructure and maintenance costs by 50% while improving system reliability and performance.'
             ]
           },
           {
@@ -839,6 +841,7 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
       phone: plainResume.phone,
       linkedin: plainResume.linkedin,
       github: plainResume.github,
+      portfolio: plainResume.portfolio,
       summary: plainResume.summary,
       education: plainResume.education.map(edu => ({
         ...edu,

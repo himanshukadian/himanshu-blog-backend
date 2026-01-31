@@ -71,7 +71,7 @@ const submitContactForm = async (req, res, next) => {
     if (!emailSent && process.env.EMAIL_WEBHOOK_URL) {
       try {
         const webhookResponse = await axios.post(process.env.EMAIL_WEBHOOK_URL, {
-          to: process.env.CONTACT_EMAIL || 'himanshu.c.official@gmail.com',
+          to: process.env.CONTACT_EMAIL || 'himanshuofficialnitw@gmail.com',
           subject: `Contact Form: ${sanitizedData.subject}`,
           html: `
             <h3>New Contact Form Submission</h3>

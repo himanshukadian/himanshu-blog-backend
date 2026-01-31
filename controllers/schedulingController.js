@@ -388,7 +388,7 @@ async function generateCalendarEvent(meetingData) {
       timeZone: 'Asia/Kolkata'
     },
     attendees: [
-      { email: 'himanshu.c.official@gmail.com' },
+      { email: 'himanshuofficialnitw@gmail.com' },
       { email: meetingData.email }
     ]
   };
