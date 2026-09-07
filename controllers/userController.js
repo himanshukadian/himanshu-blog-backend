@@ -5,9 +5,15 @@ const { generateToken } = require('../utils/jwt');
 // Get all users (admin only)
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find().setOptions({ includeInactive: true }).select('-password +active');
+    const users = await User.find().setOptions({ includeInactive: true }).select('-password +active').lean();
 
-    res.status(200).json(users);
+    const data = users.map(u => ({
+      ...u,
+      username: u.name || u.email,
+      isAdmin: u.role === 'admin'
+    }));
+
+    res.status(200).json(data);
   } catch (err) {
     next(err);
   }
@@ -31,12 +37,18 @@ exports.getUserById = async (req, res, next) => {
   }
 };
 
-// Create user (signup)
+// Create user (signup or admin-added user)
 exports.createUser = async (req, res, next) => {
   try {
+    const { username, password, isAdmin, name, email } = req.body;
+
     const user = await User.create({
-      ...req.body,
-      role: 'user' // Default role for signup
+      name: name || username,
+      email:
+        email ||
+        (username && username.includes('@') ? username : `${username}@user.local`),
+      password,
+      role: isAdmin ? 'admin' : 'user'
     });
 
     // Generate token
@@ -58,13 +70,20 @@ exports.createUser = async (req, res, next) => {
 // Update user (admin only)
 exports.updateUser = async (req, res, next) => {
   try {
-    if (req.body.password) {
-      return next(new AppError('This route is not for password updates. Please use /updatePassword.', 400));
+    const updateData = { ...req.body };
+    if (updateData.username) {
+      updateData.name = updateData.username;
+      delete updateData.username;
     }
+    if (typeof updateData.isAdmin === 'boolean') {
+      updateData.role = updateData.isAdmin ? 'admin' : 'user';
+      delete updateData.isAdmin;
+    }
+    delete updateData.password;
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true
@@ -77,7 +96,7 @@ exports.updateUser = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      data: user
+      data: { ...user.toObject(), username: user.name, isAdmin: user.role === 'admin' }
     });
   } catch (err) {
     next(err);
