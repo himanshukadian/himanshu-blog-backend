@@ -10,6 +10,7 @@ router.get('/comments', protect, permit('admin'), articleController.getAllCommen
 // Public or optionally protected routes
 router.get('/', optionalProtect, articleController.getAllArticles);
 router.get('/slug/:slug', articleController.getArticleBySlug);
+router.get('/:slug', articleController.getArticleBySlug);
 router.get('/:id/comments', optionalProtect, articleController.getArticleComments);
 
 // Protected routes (all routes below require authentication)
