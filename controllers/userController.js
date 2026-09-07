@@ -7,11 +7,7 @@ exports.getAllUsers = async (req, res, next) => {
   try {
     const users = await User.find().setOptions({ includeInactive: true }).select('-password +active');
 
-    res.status(200).json({
-      status: 'success',
-      results: users.length,
-      data: users
-    });
+    res.status(200).json(users);
   } catch (err) {
     next(err);
   }
