@@ -7,11 +7,7 @@ exports.getAllTypes = async (req, res, next) => {
     const types = await Type.find()
       .sort({ 'stats.articles': -1 });
 
-    res.status(200).json({
-      status: 'success',
-      results: types.length,
-      data: types
-    });
+    res.status(200).json(types);
   } catch (err) {
     next(err);
   }

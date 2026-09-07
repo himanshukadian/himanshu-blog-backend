@@ -33,21 +33,22 @@ exports.getAllArticles = async (req, res, next) => {
       if (typeDoc) {
         filter.type = typeDoc._id;
       } else {
-        return res.status(200).json({ status: 'success', results: 0, total: 0, data: [] });
+        return res.status(200).json([]);
       }
     } else if (req.query.type && req.query.type !== 'All') {
       const typeDoc = await Type.findOne({ name: req.query.type });
       if (typeDoc) {
         filter.type = typeDoc._id;
       } else {
-        return res.status(200).json({ status: 'success', results: 0, total: 0, data: [] });
+        return res.status(200).json([]);
       }
     }
 
-    // Tag filtering
-    if (req.query.tags) {
+    // Tag filtering (supports both ?tag and ?tags)
+    const tagQuery = req.query.tags || req.query.tag;
+    if (tagQuery) {
       // tags can be a comma-separated list of tag names, slugs, or ids
-      const tagValues = req.query.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const tagValues = tagQuery.split(',').map(t => t.trim()).filter(Boolean);
       console.log('Searching for tags:', tagValues); // Debug log
       
       const tagDocs = await Tag.find({
@@ -65,7 +66,7 @@ exports.getAllArticles = async (req, res, next) => {
         console.log('Filter with tag IDs:', filter.tags); // Debug log
       } else {
         // If no tags found, return empty result
-        return res.status(200).json({ status: 'success', results: 0, total: 0, data: [] });
+        return res.status(200).json([]);
       }
     }
 
@@ -93,15 +94,7 @@ exports.getAllArticles = async (req, res, next) => {
 
     console.log('Articles found:', articles.length); // Debug log
 
-    res.status(200).json({
-      status: 'success',
-      results: articles.length,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      data: articles
-    });
+    res.status(200).json(articles);
   } catch (err) {
     next(err);
   }
@@ -119,10 +112,7 @@ exports.getArticleBySlug = async (req, res, next) => {
     // Increment view count
     await article.incrementViews();
 
-    res.status(200).json({
-      status: 'success',
-      data: article
-    });
+    res.status(200).json(article);
   } catch (err) {
     next(err);
   }

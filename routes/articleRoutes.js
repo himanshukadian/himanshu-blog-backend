@@ -11,6 +11,8 @@ router.get('/comments', protect, permit('admin'), articleController.getAllCommen
 router.get('/', optionalProtect, articleController.getAllArticles);
 router.get('/slug/:slug', articleController.getArticleBySlug);
 router.get('/:id/comments', optionalProtect, articleController.getArticleComments);
+// Public single-article page by slug (must come after more specific routes)
+router.get('/:slug', articleController.getArticleBySlug);
 
 // Protected routes (all routes below require authentication)
 router.use(protect);

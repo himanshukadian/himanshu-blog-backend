@@ -7,11 +7,7 @@ exports.getAllTags = async (req, res, next) => {
     const tags = await Tag.find()
       .sort({ 'stats.articles': -1 });
 
-    res.status(200).json({
-      status: 'success',
-      results: tags.length,
-      data: tags
-    });
+    res.status(200).json(tags);
   } catch (err) {
     next(err);
   }
