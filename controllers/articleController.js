@@ -263,17 +263,19 @@ exports.updateArticle = async (req, res, next) => {
       if (authorId) req.body.author = authorId;
       else delete req.body.author;
     }
-    // Set publishedAt based on status change
+    // Only touch publishedAt when status is explicitly provided
     const currentArticle = await Article.findById(req.params.id);
     if (!currentArticle) {
       return next(new AppError('No article found with that ID', 404));
     }
-    const newStatus = req.body.status;
-    if (newStatus === 'published' && currentArticle.status !== 'published') {
-      req.body.publishedAt = Date.now();
-    }
-    if (newStatus !== 'published' && currentArticle.status === 'published') {
-      req.body.publishedAt = null;
+    if ('status' in req.body) {
+      const newStatus = req.body.status;
+      if (newStatus === 'published' && currentArticle.status !== 'published') {
+        req.body.publishedAt = Date.now();
+      }
+      if (newStatus !== 'published' && currentArticle.status === 'published') {
+        req.body.publishedAt = null;
+      }
     }
     const article = await Article.findByIdAndUpdate(
       req.params.id,
