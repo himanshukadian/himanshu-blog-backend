@@ -3,6 +3,8 @@ const { promisify } = require('util');
 const User = require('../models/User');
 const AppError = require('../utils/appError');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+
 // Protect routes
 const protect = async (req, res, next) => {
   try {
@@ -24,7 +26,7 @@ const protect = async (req, res, next) => {
     }
 
     // 2) Verify token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    const decoded = await promisify(jwt.verify)(token, JWT_SECRET);
 
     // 3) Check if user still exists
     const currentUser = await User.findById(decoded.id);
@@ -69,7 +71,7 @@ exports.isLoggedIn = async (req, res, next) => {
       // 1) Verify token
       const decoded = await promisify(jwt.verify)(
         req.cookies.jwt,
-        process.env.JWT_SECRET
+        JWT_SECRET
       );
 
       // 2) Check if user still exists
@@ -149,7 +151,7 @@ const optionalProtect = async (req, res, next) => {
       return next();
     }
     // Verify token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    const decoded = await promisify(jwt.verify)(token, JWT_SECRET);
     // Check if user still exists
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {

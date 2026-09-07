@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Article = require('../models/Article');
 const Tag = require('../models/Tag');
 const Type = require('../models/Type');
+const User = require('../models/User');
 const Comment = require('../models/Comment');
 const AppError = require('../utils/appError');
 const { sendArticlePublishedEmail } = require('../services/email');
@@ -45,33 +46,31 @@ async function resolveTagList(tags) {
   return ids;
 }
 
-// Resolve an author reference (id/object) to an ObjectId or undefined
-function resolveAuthorRef(ref) {
+// Resolve an author reference (id/object/name) to an ObjectId or undefined
+async function resolveAuthorRef(ref) {
   if (!ref) return undefined;
   let value = ref;
   if (typeof ref === 'object') value = ref._id || ref.name;
-  return mongoose.Types.ObjectId.isValid(value) ? value : undefined;
+  if (mongoose.Types.ObjectId.isValid(value)) return value;
+  const user = await User.findOne({ name: value });
+  return user ? user._id : undefined;
 }
 
 // Get all articles
 exports.getAllArticles = async (req, res, next) => {
   try {
-    console.log('getAllArticles req.user:', req.user); // Debug log
     // Parse limit and skip from query, default to 0 (no limit/skip)
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 0;
     const page = req.query.page ? parseInt(req.query.page, 10) : 1;
     const skip = (page - 1) * limit;
 
-    console.log('Pagination params:', { page, limit, skip }); // Debug log
-
     // Build filter
     let filter = {};
-    // If status is provided as a query param, use it
-    if (req.query.status && req.query.status !== 'all') {
-      filter.status = req.query.status;
-    } else if (!req.user || req.user.role !== 'admin') {
-      // Only show published to non-admins
+    if (!req.user || req.user.role !== 'admin') {
+      // Only show published to non-admins (ignore ?status entirely)
       filter.status = 'published';
+    } else if (req.query.status && req.query.status !== 'all') {
+      filter.status = req.query.status;
     }
     const Type = require('../models/Type');
     if (req.query.typeId) {
@@ -97,7 +96,6 @@ exports.getAllArticles = async (req, res, next) => {
     if (tagQuery) {
       // tags can be a comma-separated list of tag names, slugs, or ids
       const tagValues = tagQuery.split(',').map(t => t.trim()).filter(Boolean);
-      console.log('Searching for tags:', tagValues); // Debug log
       
       const tagDocs = await Tag.find({
         $or: [
@@ -107,11 +105,8 @@ exports.getAllArticles = async (req, res, next) => {
         ]
       });
       
-      console.log('Found tags:', tagDocs); // Debug log
-      
       if (tagDocs.length > 0) {
         filter.tags = { $in: tagDocs.map(tag => tag._id) };
-        console.log('Filter with tag IDs:', filter.tags); // Debug log
       } else {
         // If no tags found, return empty result
         return res.status(200).json([]);
@@ -129,7 +124,6 @@ exports.getAllArticles = async (req, res, next) => {
 
     // Get total count before pagination
     const total = await Article.countDocuments(filter);
-    console.log('Total articles found:', total); // Debug log
 
     const articles = await Article.find(filter)
       .populate('author', 'name email avatar')
@@ -139,8 +133,6 @@ exports.getAllArticles = async (req, res, next) => {
       .sort({ publishedAt: -1 })
       .skip(skip)
       .limit(limit);
-
-    console.log('Articles found:', articles.length); // Debug log
 
     res.status(200).json(articles);
   } catch (err) {
@@ -252,15 +244,25 @@ exports.updateArticle = async (req, res, next) => {
     if ('publishedAt' in req.body) {
       delete req.body.publishedAt;
     }
-    // Resolve type to ObjectId (accepts name, slug, or populated object)
-    req.body.type = await resolveTypeRef(req.body.type);
-    // Resolve tags (accepts name list, ids, or populated objects)
-    req.body.tags = await resolveTagList(req.body.tags);
-    // Resolve author (accepts id or populated object); drop if invalid so the
-    // existing author is preserved
-    const authorId = resolveAuthorRef(req.body.author);
-    if (authorId) req.body.author = authorId;
-    else delete req.body.author;
+    // Resolve type only if provided (avoid wiping on partial updates)
+    if ('type' in req.body) {
+      req.body.type = await resolveTypeRef(req.body.type);
+    } else {
+      delete req.body.type;
+    }
+    // Resolve tags only if provided (avoid wiping on partial updates)
+    if ('tags' in req.body) {
+      req.body.tags = await resolveTagList(req.body.tags);
+    } else {
+      delete req.body.tags;
+    }
+    // Resolve author (accepts id, name, or populated object); drop if invalid so
+    // the existing author is preserved
+    if ('author' in req.body) {
+      const authorId = await resolveAuthorRef(req.body.author);
+      if (authorId) req.body.author = authorId;
+      else delete req.body.author;
+    }
     // Set publishedAt based on status change
     const currentArticle = await Article.findById(req.params.id);
     if (!currentArticle) {
