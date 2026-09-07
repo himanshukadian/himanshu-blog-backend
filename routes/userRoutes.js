@@ -25,9 +25,11 @@ router.patch('/me', updateMe);
 router.delete('/me', deleteMe);
 
 // Admin only routes
+router.post('/', permit('admin'), createUser);
 router.get('/', permit('admin'), getAllUsers);
 router.get('/:id', permit('admin'), getUserById);
 router.patch('/:id', permit('admin'), updateUser);
+router.put('/:id', permit('admin'), updateUser);
 router.delete('/:id', permit('admin'), deleteUser);
 
 module.exports = router; 

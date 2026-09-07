@@ -18,6 +18,7 @@ router.get('/:slug', getTypeBySlug);
 router.use(protect);
 router.post('/', permit('admin', 'editor'), createType);
 router.patch('/:id', permit('admin', 'editor'), updateType);
+router.put('/:id', permit('admin', 'editor'), updateType);
 router.delete('/:id', permit('admin', 'editor'), deleteType);
 
 module.exports = router; 

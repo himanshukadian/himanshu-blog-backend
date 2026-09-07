@@ -18,6 +18,7 @@ router.get('/:slug', getTagBySlug);
 router.use(protect);
 router.post('/', permit('admin', 'editor'), createTag);
 router.patch('/:id', permit('admin', 'editor'), updateTag);
+router.put('/:id', permit('admin', 'editor'), updateTag);
 router.delete('/:id', permit('admin', 'editor'), deleteTag);
 
 module.exports = router; 

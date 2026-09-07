@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 const AppError = require('../utils/appError');
 const { generateToken } = require('../utils/jwt');
 
@@ -79,7 +80,12 @@ exports.updateUser = async (req, res, next) => {
       updateData.role = updateData.isAdmin ? 'admin' : 'user';
       delete updateData.isAdmin;
     }
-    delete updateData.password;
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 12);
+      updateData.passwordChangedAt = new Date();
+    } else {
+      delete updateData.password;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,

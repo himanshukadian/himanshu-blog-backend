@@ -1,9 +1,57 @@
 const mongoose = require('mongoose');
 const Article = require('../models/Article');
 const Tag = require('../models/Tag');
+const Type = require('../models/Type');
 const Comment = require('../models/Comment');
 const AppError = require('../utils/appError');
 const { sendArticlePublishedEmail } = require('../services/email');
+
+const slugify = name =>
+  String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+// Resolve a type reference (name/slug/object with name or _id) to an ObjectId
+async function resolveTypeRef(ref) {
+  if (!ref) return undefined;
+  let value = ref;
+  if (typeof ref === 'object') value = ref._id || ref.name || ref.slug;
+  if (mongoose.Types.ObjectId.isValid(value)) return value;
+  const typeDoc = await Type.findOne({ $or: [{ name: value }, { slug: value }] });
+  return typeDoc ? typeDoc._id : undefined;
+}
+
+// Resolve a tags list (names, ids, or objects) to ObjectIds, creating missing tags
+async function resolveTagList(tags) {
+  if (typeof tags === 'string') {
+    tags = tags.split(',').map(t => t.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(tags)) return [];
+  const ids = [];
+  for (const raw of tags) {
+    let value = raw;
+    if (raw && typeof raw === 'object') value = raw._id || raw.name || raw.slug;
+    if (mongoose.Types.ObjectId.isValid(value)) {
+      ids.push(value);
+      continue;
+    }
+    let tag = await Tag.findOne({ name: value });
+    if (!tag) {
+      tag = await Tag.create({ name: value, slug: slugify(value) });
+    }
+    ids.push(tag._id);
+  }
+  return ids;
+}
+
+// Resolve an author reference (id/object) to an ObjectId or undefined
+function resolveAuthorRef(ref) {
+  if (!ref) return undefined;
+  let value = ref;
+  if (typeof ref === 'object') value = ref._id || ref.name;
+  return mongoose.Types.ObjectId.isValid(value) ? value : undefined;
+}
 
 // Get all articles
 exports.getAllArticles = async (req, res, next) => {
@@ -162,26 +210,10 @@ exports.createArticle = async (req, res, next) => {
     if ('publishedAt' in req.body) {
       delete req.body.publishedAt;
     }
-    // Convert 'type' to ObjectId if valid
-    if (req.body.type && typeof req.body.type === 'string') {
-      req.body.type = mongoose.Types.ObjectId.isValid(req.body.type) ? req.body.type : undefined;
-    }
-    // Handle tags as string: find or create tags by name
-    if (typeof req.body.tags === 'string') {
-      const tagNames = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
-      req.body.tags = [];
-      for (const name of tagNames) {
-        let tag = await Tag.findOne({ name });
-        if (!tag) {
-          tag = await Tag.create({ name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') });
-        }
-        req.body.tags.push(tag._id);
-      }
-    } else if (Array.isArray(req.body.tags)) {
-      req.body.tags = req.body.tags
-        .map(tag => mongoose.Types.ObjectId.isValid(tag) ? tag : undefined)
-        .filter(Boolean);
-    }
+    // Resolve type to ObjectId (accepts name, slug, or populated object)
+    req.body.type = await resolveTypeRef(req.body.type);
+    // Resolve tags (accepts name list, ids, or populated objects)
+    req.body.tags = await resolveTagList(req.body.tags);
     // Set publishedAt based on status
     if (req.body.status === 'published') {
       req.body.publishedAt = Date.now();
@@ -220,26 +252,15 @@ exports.updateArticle = async (req, res, next) => {
     if ('publishedAt' in req.body) {
       delete req.body.publishedAt;
     }
-    // Convert 'type' to ObjectId if valid
-    if (req.body.type && typeof req.body.type === 'string') {
-      req.body.type = mongoose.Types.ObjectId.isValid(req.body.type) ? req.body.type : undefined;
-    }
-    // Handle tags as string: find or create tags by name
-    if (typeof req.body.tags === 'string') {
-      const tagNames = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
-      req.body.tags = [];
-      for (const name of tagNames) {
-        let tag = await Tag.findOne({ name });
-        if (!tag) {
-          tag = await Tag.create({ name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') });
-        }
-        req.body.tags.push(tag._id);
-      }
-    } else if (Array.isArray(req.body.tags)) {
-      req.body.tags = req.body.tags
-        .map(tag => mongoose.Types.ObjectId.isValid(tag) ? tag : undefined)
-        .filter(Boolean);
-    }
+    // Resolve type to ObjectId (accepts name, slug, or populated object)
+    req.body.type = await resolveTypeRef(req.body.type);
+    // Resolve tags (accepts name list, ids, or populated objects)
+    req.body.tags = await resolveTagList(req.body.tags);
+    // Resolve author (accepts id or populated object); drop if invalid so the
+    // existing author is preserved
+    const authorId = resolveAuthorRef(req.body.author);
+    if (authorId) req.body.author = authorId;
+    else delete req.body.author;
     // Set publishedAt based on status change
     const currentArticle = await Article.findById(req.params.id);
     if (!currentArticle) {

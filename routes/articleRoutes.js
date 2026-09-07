@@ -4,8 +4,8 @@ const articleController = require('../controllers/articleController');
 const { protect, optionalProtect } = require('../middleware/auth');
 const permit = require('../middleware/permission');
 
-// Add admin route to get all comments (must be before /:slug)
-router.get('/comments', protect, permit('admin'), articleController.getAllComments);
+// Add admin route to get all comments (under a path that can't shadow slugs)
+router.get('/all-comments', protect, permit('admin'), articleController.getAllComments);
 
 // Public or optionally protected routes
 router.get('/', optionalProtect, articleController.getAllArticles);
