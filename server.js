@@ -39,6 +39,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://codeanimo.buildwithhimanshu.com',
   'https://zynki.online',
+  'https://blog.buildwithhimanshu.com',
   'http://localhost:3000', // Portfolio development
   'https://portfolio.buildwithhimanshu.com' // Portfolio production
 ];
