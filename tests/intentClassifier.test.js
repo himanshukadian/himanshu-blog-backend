@@ -1,7 +1,12 @@
-const { classifyIntent, normalizeQuery } = require('../utils/intentClassifier');
+const { classifyIntent, routeIntent, normalizeQuery } = require('../utils/intentClassifier');
 
 const expectIntent = (query, intent) => {
   const result = classifyIntent(query);
+  expect(result && result.intent).toBe(intent);
+};
+
+const expectRoute = (query, intent) => {
+  const result = routeIntent(query);
   expect(result && result.intent).toBe(intent);
 };
 
@@ -15,7 +20,7 @@ describe('normalizeQuery', () => {
   });
 });
 
-describe('golden set: typos must resolve to the right intent', () => {
+describe('golden set: typos must resolve to the right intent (fuzzy tier)', () => {
   const cases = [
     ['setuppppppp meeeetinggggg', 'meeting'],
     ['set up a metting', 'meeting'],
@@ -37,7 +42,7 @@ describe('golden set: typos must resolve to the right intent', () => {
   });
 });
 
-describe('golden set: out-of-scope queries must NOT match', () => {
+describe('golden set: out-of-scope queries must NOT match fuzzy', () => {
   const cases = [
     'summarize the AI agents article',
     'what did you learn building priceiq',
@@ -48,5 +53,46 @@ describe('golden set: out-of-scope queries must NOT match', () => {
 
   test.each(cases)('%s -> null', (query) => {
     expect(classifyIntent(query)).toBeNull();
+  });
+});
+
+describe('routing tier: single-article elaboration must NOT match projects list', () => {
+  const regressions = [
+    'list 4 main points about this project',
+    'more about High-throughput monitoring & insights platform',
+    'tell me 5 key points about the lane management system',
+    'what is the architecture of the high-throughput platform'
+  ];
+
+  test.each(regressions)('%s -> NOT projects', (query) => {
+    const r = routeIntent(query);
+    expect(r === null || r.intent !== 'projects').toBe(true);
+  });
+});
+
+describe('routing tier: genuine projects list still routes to projects', () => {
+  const cases = [
+    ['show me all your projects', 'projects'],
+    ['list yor projects', 'projects'],
+    ['wat projects have u built', 'projects'],
+    ['what projects have you built so far', 'projects']
+  ];
+
+  test.each(cases)('%s -> %s', (query, intent) => {
+    expectRoute(query, intent);
+  });
+});
+
+describe('routing tier: regression queries route to the right intent', () => {
+  const cases = [
+    ['email address of himanshu', 'contact'],
+    ['setuppppppp meeeetinggggg', 'meeting'],
+    ['all your writing', 'writing-list'],
+    ['summarize the AI agents article', null]
+  ];
+
+  test.each(cases)('%s -> %s', (query, intent) => {
+    const r = routeIntent(query);
+    expect(r ? r.intent : null).toBe(intent);
   });
 });

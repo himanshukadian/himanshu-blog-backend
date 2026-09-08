@@ -106,9 +106,106 @@ const classifyIntent = (query) => {
   return { intent: best[0], score: best[1], normalized: normQ };
 };
 
+// ---------------------------------------------------------------------------
+// Tier 1: exact (regex) intent rules. Anchored to real phrasings, with
+// negative patterns that push elaboration/single-subject queries toward the
+// LLM instead of a deterministic router. Contest between intents => LLM.
+// ---------------------------------------------------------------------------
+
+const WRITING_LIST_PATTERNS = [
+  /(^|\b)(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blogs?|articles?|writing|writings|posts?)\b/i,
+  /^(what have you written|your blog posts|blog posts|all your writing|blogs you've written)$/i
+];
+
+const WRITING_LIST_EXCLUDES = /(explain|summar|tell me about|what is |what's |how |why |read|viewed|understood)/i;
+
+const isWritingListIntent = (nq) => {
+  const matched = WRITING_LIST_PATTERNS.some((re) => re.test(nq));
+  return matched && !WRITING_LIST_EXCLUDES.test(nq);
+};
+
+const CONTACT_PATTERNS = /(email|e-?mail|contact|@|phone|number|linkedin|github|social|get in touch|reach (out |you )?|details|how (to|do|can) i (reach|contact|email|message)|message (him|himanshu))/i;
+
+const CONTACT_EXCLUDES = /(article|blog|resume|job|role|explain|summar|writing)/i;
+
+const isContactIntent = (nq) => {
+  return CONTACT_PATTERNS.test(nq) && !CONTACT_EXCLUDES.test(nq);
+};
+
+// A "list my projects" request: plural collection listing. Elaborations about
+// a SPECIFIC project (default-demonstrative "this/that/the project", "points
+// /details/more about", architecture/tech-stack/deep-dive asks) are NOT list
+// intents — they fall through to the LLM which answers from context/facts.
+const PROJECTS_LIST_SIGNALS = /(list|show|see|view|all|portfolio|built|build|made|created|worked on|what)/i;
+
+const PROJECTS_LIST_EXCLUDES = [
+  /(this|that|the)\s+project(s)?\b/,
+  /\b\d+\s+points?\b/,
+  /\bpoints?\s+about\b/,
+  /\bdetails?\s+(about|of|on)\b/,
+  /\bmore\s+about\b/,
+  /\bfeatures?\s+of\b/,
+  /\bcomponents?\s+of\b/,
+  /\barchitecture\b/,
+  /\btech\s*stack\b/,
+  /(explain|summar|article|blog|writing|how does|why i built|did you build)/i,
+  /(main|key|top|important)\s+points?\b/
+];
+
+const isProjectsListIntent = (nq) => {
+  if (!/\bproject(s)?\b/i.test(nq)) return false;
+  if (!PROJECTS_LIST_SIGNALS.test(nq)) return false;
+  if (PROJECTS_LIST_EXCLUDES.some((re) => re.test(nq))) return false;
+  return true;
+};
+
+const MEETING_INTENT =
+  /(?:let'?s?\s+(?:set\s*up|setup|meet|talk|connect|chat)|(?:set\s*up|setup|schedule|book|reserve|arrange|plan)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|wanna\s+(?:have\s+a\s+)?(?:talk|call|meeting)|let'?s?\s+catch\s+up|get\s+on\s+a\s+call|lock\s+in\s+a\s+slot|find\s+a\s+time|availab|avail|slot|slots|calendly|timezone|when\s+(?:are|is)\s+(?:you|he)\s+free|free\s+time|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot))/i;
+
+const MEETING_EXCLUDES =
+  /(?:articles?|blog|writing|learned|explain|summar|price\s?iq|cli|agent|distributed|post|read|what did|how did|why did)/i;
+
+const isMeetingIntent = (nq) => MEETING_INTENT.test(nq) && !MEETING_EXCLUDES.test(nq);
+
+const isArticleRelated = (nq) => {
+  return /(article|blog|writing|writings|write|posts?|published|summariz|explain|what .*learned|lessons|price ?iq|cli|distributed systems|ai agents|mcp|terminal|portfolio as a terminal)/i.test(nq);
+};
+
+const FUZZY_MEETING_GUARD =
+  /(article|blog|writing|explain|summar|resume|job|price ?iq|cli|distributed|terminal|read)/i;
+
+// Full routing: exact regex tier first (single uncontested hit wins),
+// then fuzzy tier (meeting only), else null so the caller falls back to LLM.
+const routeIntent = (query) => {
+  const nq = normalizeQuery(query);
+  if (!nq) return null;
+
+  const hits = [];
+  if (isWritingListIntent(nq)) hits.push('writing-list');
+  if (isContactIntent(nq)) hits.push('contact');
+  if (isProjectsListIntent(nq)) hits.push('projects');
+  if (isMeetingIntent(nq)) hits.push('meeting');
+
+  if (hits.length === 1) return { intent: hits[0], tier: 'exact' };
+  if (hits.length > 1) return null;
+
+  const fuzzy = classifyIntent(nq);
+  if (fuzzy && fuzzy.intent === 'meeting' && !FUZZY_MEETING_GUARD.test(nq)) {
+    return { intent: 'meeting', tier: 'fuzzy', score: fuzzy.score };
+  }
+
+  return null;
+};
+
 module.exports = {
   normalizeQuery,
   classifyIntent,
+  routeIntent,
+  isMeetingIntent,
+  isContactIntent,
+  isProjectsListIntent,
+  isWritingListIntent,
+  isArticleRelated,
   damerauLevenshtein,
   similarity,
   bestMatch
