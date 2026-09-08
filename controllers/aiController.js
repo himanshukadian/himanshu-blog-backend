@@ -19,10 +19,10 @@ const GRACEFUL_RESPONSE = "⚠️ My AI service is temporarily unreachable — b
 
 class AIController {
   constructor() {
-    this.apiEndpoint = 'https://api.mistral.ai/v1/chat/completions';
-    this.modelName = process.env.MISTRAL_MODEL || 'ministral-14b-latest';
-    this.fallbackModel = 'ministral-8b-latest';
-    this.apiKey = process.env.MISTRAL_API_KEY;
+    this.apiEndpoint = process.env.GEMINI_API_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+    this.apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     this.axiosConfig = {
       timeout: 40000,
       maxBodyLength: 20000,
@@ -94,7 +94,7 @@ class AIController {
     return writingSources.filter((s) => (typeof s.score === 'number' ? s.score : 0) >= MIN_SCORE);
   };
 
-  callMistral = async (messages, model, stream) => {
+  callAI = async (messages, model, stream) => {
     const response = await axios.post(this.apiEndpoint, {
       model,
       messages,
@@ -223,7 +223,7 @@ class AIController {
       let aiResponse;
       let actualModel;
       try {
-        const response = await this.callMistral(messages, this.modelName, false);
+        const response = await this.callAI(messages, this.modelName, false);
         actualModel = this.modelName;
         aiResponse = response.data.choices?.[0]?.message?.content;
       } catch (e) {
@@ -233,21 +233,21 @@ class AIController {
         const isNetworkError = code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ECONNABORTED' || !e.response;
         if (isNetworkError) {
           errCode = code || 'network-error';
-          console.error(`[halo] Mistral network error code=${code} status=${status}`);
+          console.error(`[halo] AI network error code=${code} status=${status}`);
           console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
           return res.status(200).json(this.gracefulFailure(writingSources));
         }
         if (isHttpError) {
           errCode = `http-${status}`;
           if (status === 401 || status === 403) {
-            console.error(`[halo] Mistral auth error status=${status} — logging loudly`);
+            console.error(`[halo] AI auth error status=${status} — logging loudly`);
           }
           try {
-            const retryResponse = await this.callMistral(messages, this.fallbackModel, false);
+            const retryResponse = await this.callAI(messages, this.fallbackModel, false);
             actualModel = this.fallbackModel;
             aiResponse = retryResponse.data.choices?.[0]?.message?.content;
           } catch (retryErr) {
-            console.error(`[halo] Mistral fallback failed code=${retryErr.code} status=${retryErr.response ? retryErr.response.status : 0}`);
+            console.error(`[halo] AI fallback failed code=${retryErr.code} status=${retryErr.response ? retryErr.response.status : 0}`);
             console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
             return res.status(200).json(this.gracefulFailure(writingSources));
           }
@@ -471,7 +471,7 @@ class AIController {
         console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=${modelUsed} ms=${Date.now() - start} err=none`);
       } catch (e) {
         const code = e.code || (e.response ? `http-${e.response.status}` : 'error');
-        console.error(`[halo] stream Mistral error code=${code}`);
+        console.error(`[halo] stream AI error code=${code}`);
         console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=${modelUsed} ms=${Date.now() - start} err=${code}`);
         if (!closed) {
           res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI service temporarily unavailable' })}\n\n`);

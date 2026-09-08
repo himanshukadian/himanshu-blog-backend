@@ -10,9 +10,9 @@ const puppeteer = require('puppeteer');
 class ResumeController {
   constructor() {
     // AI service configuration
-    this.apiEndpoint = 'https://api.mistral.ai/v1/chat/completions';
-    this.modelName = 'open-mistral-7b';
-    this.apiKey = process.env.MISTRAL_API_KEY;
+    this.apiEndpoint = process.env.GEMINI_API_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
   }
 
   // Create base resume template
@@ -378,7 +378,7 @@ class ResumeController {
   // NEW: LLM-based resume customization (replaces all keyword matching)
   async llmBasedResumeCustomization(baseResume, jobDescription, companyName, jobTitle) {
     try {
-      console.log('🤖 Using LLM-based resume customization with Mistral Large 2409');
+      console.log(`🤖 Using LLM-based resume customization with ${this.modelName}`);
       
       const axios = require('axios');
       
@@ -1091,7 +1091,7 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
   // Use AI to enhance keyword extraction
   async getAIKeywordAnalysis(jobDescription) {
     if (!this.apiKey) {
-      console.warn('Mistral API key not provided, skipping AI analysis');
+      console.warn('LLM API key not provided, skipping AI analysis');
       return [];
     }
 
