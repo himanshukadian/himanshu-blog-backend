@@ -9,6 +9,12 @@
 # Production
 /build
 
+# Generated PDFs & local artifacts
+/uploads/
+*.pdf
+DEPLOY.md
+deploy.sh
+
 # Misc
 .DS_Store
 .env.local
