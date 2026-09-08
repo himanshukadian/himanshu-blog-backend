@@ -18,13 +18,13 @@ app.use(helmet()); // Set security HTTP headers
 app.use(mongoSanitize()); // Sanitize data
 app.use(xss()); // Prevent XSS attacks
 
-// Rate limiting (disabled for now)
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 1000, // Limit each IP to 1000 requests per windowMs
-//   message: 'Too many requests from this IP, please try again later.'
-// });
-// app.use('/api', limiter);
+// Rate limiting
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Body parser
 app.use(express.json({ limit: '1mb' }));
@@ -73,6 +73,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
+app.use(globalLimiter);
 app.use('/api/contact', require('./routes/contactRoutes'));
 app.use('/api/scheduling', require('./routes/schedulingRoutes'));
 app.use('/api/resume', require('./routes/resumeRoutes'));
@@ -106,4 +107,10 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    const ragStats = require('./utils/articleRag').getStats();
+    console.log('[halo] aiService health ok', ragStats);
+  } catch (e) {
+    console.warn('[halo] aiService health check unavailable');
+  }
 }); 

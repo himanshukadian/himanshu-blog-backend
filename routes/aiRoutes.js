@@ -1,13 +1,13 @@
 const express = require('express');
 const aiController = require('../controllers/aiController');
 const rateLimit = require('express-rate-limit');
+const AppError = require('../utils/appError');
 
 const router = express.Router();
 
-// Rate limiting for AI requests
 const aiRateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 10, // Limit each IP to 10 AI requests per minute
+  windowMs: 1 * 60 * 1000,
+  max: 10,
   message: {
     status: 'error',
     message: 'Too many AI requests, please try again later.'
@@ -16,16 +16,21 @@ const aiRateLimit = rateLimit({
   legacyHeaders: false
 });
 
-// Apply rate limiting to AI routes
 router.use(aiRateLimit);
 
-// AI chat endpoint
+router.use((req, res, next) => {
+  if (Number(req.get('content-length') || 0) > 51200) {
+    return next(new AppError('Request too large', 413));
+  }
+  next();
+});
+
 router.post('/chat', aiController.generateResponse);
 
-// AI blog article retrieval endpoint
+router.post('/stream', aiController.stream);
+
 router.post('/rag', aiController.retrieveArticles);
 
-// AI service health check
 router.get('/health', aiController.healthCheck);
 
-module.exports = router; 
+module.exports = router;
