@@ -1,4 +1,4 @@
-const { resolveQuery } = require('../utils/queryResolver');
+const { resolveQuery, isContextDependent } = require('../utils/queryResolver');
 
 describe('queryResolver: anaphoric follow-ups resolve against prior topic', () => {
   const history = [
@@ -50,5 +50,40 @@ describe('queryResolver: self-contained queries are untouched', () => {
     const resolved = resolveQuery('is there article on it', dupHistory);
     expect(resolved).not.toBeNull();
     expect(resolved).toMatch(/ai/);
+  });
+});
+
+describe('queryResolver: isContextDependent flags ellipsis for LLM CQR rewrite', () => {
+  const history = [
+    { type: 'user', content: 'his projects' },
+    { type: 'assistant', content: 'Key projects: AI-powered analytics assistant, Lane Management System, high-throughput monitoring platform.' }
+  ];
+
+  test.each([
+    'in bullet points',
+    'more details',
+    'expand',
+    'tell me more',
+    'give me bullet points on that',
+    'is there article on it',
+    'in short',
+    'summarize'
+  ])('%s -> context-dependent', (q) => {
+    expect(isContextDependent(q, history)).toBe(true);
+  });
+
+  test.each([
+    'what is priceiq',
+    'summarize the AI agents article',
+    'his projects',
+    'show me all your projects',
+    'invite',
+    'email address of himanshu'
+  ])('%s -> self-contained', (q) => {
+    expect(isContextDependent(q, history)).toBe(false);
+  });
+
+  test('no history -> never context-dependent', () => {
+    expect(isContextDependent('in bullet points', [])).toBe(false);
   });
 });

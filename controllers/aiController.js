@@ -3,7 +3,7 @@ const Article = require('../models/Article');
 const axios = require('axios');
 const rag = require('../utils/articleRag');
 const { normalizeQuery, routeIntent, isArticleRelated } = require('../utils/intentClassifier');
-const { resolveQuery } = require('../utils/queryResolver');
+const { resolveQuery, isContextDependent, buildRewritePrompt } = require('../utils/queryResolver');
 
 const SYSTEM_PROMPT = "You are Himanshu Chaudhary's AI chat assistant on his portfolio website. Be conversational, helpful, and natural. You help visitors learn about Himanshu, schedule meetings, and provide AI-powered resume customization services.\n\n**Your Capabilities:**\n1. **Portfolio Information** - Answer questions about Himanshu's experience, skills, projects, education\n2. **Resume Customization** - When users provide job descriptions, help them customize resumes (don't output full resumes unless they paste a job description)\n3. **Meeting Scheduling** - Help coordinate meetings and discussions\n4. **Writing/Articles** - Answer questions about Himanshu's blog articles using the retrieved writing context and link to the articles you reference\n\n**About Himanshu:**\n- Software Engineer II at Wayfair (Apr 2023–Present)\n- 4+ years of experience building scalable, distributed backend systems\n- Strong background in microservices architecture, REST APIs, cloud-native development, system design, and data pipelines\n- Previously: Amazon (SDE 1), Mobeology Communications\n- Education: MCA from NIT Warangal (Class Topper), B.Sc CS from University of Delhi\n- Key Projects: AI-powered analytics assistant, Lane Management System, high-throughput monitoring platform\n- Skills: Python, Java, JavaScript, SQL, AWS, Kafka, DynamoDB, Docker, Kubernetes, Generative AI, Large Language Models\n- Contact: himanshu.c.official@gmail.com, https://www.linkedin.com/in/himanshucofficial, https://github.com/himanshukadian, https://portfolio.buildwithhimanshu.com\n- Timezone: IST (Asia/Kolkata). Booking: https://calendly.com/himanshu-c-official/30min\n\n**Meeting Scheduling Rules:**\n- NEVER invent specific free times, weekday availability patterns, or typical hours. If you are given his real open slots, recommend ONLY those exact times.\n- To book, ALWAYS share this exact link: https://calendly.com/himanshu-c-official/30min\n- He is in IST; convert times to the user's zone when they mention it, but keep the same slot.\n\n**Response Style:**\n- Be conversational and friendly (use emojis appropriately)\n- Keep responses focused and under 300 words\n- For resume questions without job descriptions, explain the AI customization service\n- For meeting requests, be enthusiastic about connecting\n- For portfolio questions, provide relevant details naturally\n- Don't output full resume templates unless user provides a job description to customize for";
 
@@ -117,6 +117,36 @@ class AIController {
     const MIN_SCORE = 30;
     if (!Array.isArray(writingSources)) return [];
     return writingSources.filter((s) => (typeof s.score === 'number' ? s.score : 0) >= MIN_SCORE);
+  };
+
+  // Conversational Query Reformulation (CQR).
+  // Fast path: deterministic token-substitution for marker/hollow queries.
+  // If that can't resolve (pure ellipsis like "in bullet points"), cheap gate
+  // fires a train-free LLM rewrite (LLM4CS / Ye et al. 2023) into a
+  // self-contained query. Returns the raw query when nothing is needed or any
+  // stage fails (never blocks the answer).
+  rewriteContextualQuery = async (query, chatHistory) => {
+    const raw = String(query || '').trim();
+    if (!raw) return raw;
+    try {
+      const fast = resolveQuery(raw, chatHistory);
+      if (fast) return fast;
+      if (!isContextDependent(raw, chatHistory) || !this.apiKey) return raw;
+      const rewriteMsgs = buildRewritePrompt(raw, chatHistory);
+      const rewriteModel = this.modelChain[1] || this.modelName;
+      const t0 = Date.now();
+      const { response } = await this.callAI(rewriteMsgs, rewriteModel, false);
+      const rewritten = String(response.data.choices?.[0]?.message?.content || '').trim();
+      const ms = Date.now() - t0;
+      if (rewritten && rewritten !== raw && rewritten.length > 2) {
+        console.log(`[halo] cqr query="${raw.slice(0, 100)}" rewritten="${rewritten.slice(0, 100)}" model=${rewriteModel} ms=${ms}`);
+        return rewritten;
+      }
+      return raw;
+    } catch (e) {
+      console.log(`[halo] cqr skipped query="${raw.slice(0, 100)}" err=${e.code || e.message || 'rewrite-failed'}`);
+      return raw;
+    }
   };
 
   callAI = async (messages, model, stream) => {
@@ -348,8 +378,11 @@ class AIController {
       let writingSources = [];
       const meetingIntent = route && route.intent === 'meeting';
       const shouldRetrieve = !meetingIntent && isArticleRelated(nq);
+      const effectiveQuery = meetingIntent
+        ? query
+        : await this.rewriteContextualQuery(query, chatHistory);
       try {
-        const retrieveQuery = shouldRetrieve ? (resolveQuery(query, chatHistory) || query) : query;
+        const retrieveQuery = shouldRetrieve ? (effectiveQuery || query) : query;
         writingSources = shouldRetrieve
           ? this.keepRelevant(await rag.retrieve(retrieveQuery, 4))
           : [];
@@ -376,7 +409,7 @@ class AIController {
         messages.splice(1, 0, { role: 'system', content: meetingBlock });
       }
 
-      messages.push({ role: 'user', content: query });
+      messages.push({ role: 'user', content: effectiveQuery });
 
       if (!meetingIntent) {
         const cached = this.cacheGet(query);
@@ -564,8 +597,11 @@ class AIController {
       writingSources = [];
       const meetingIntent = route && route.intent === 'meeting';
       const shouldRetrieve = !meetingIntent && isArticleRelated(nq);
+      const effectiveQuery = meetingIntent
+        ? query
+        : await this.rewriteContextualQuery(query, chatHistory);
       try {
-        const retrieveQuery = shouldRetrieve ? (resolveQuery(query, chatHistory) || query) : query;
+        const retrieveQuery = shouldRetrieve ? (effectiveQuery || query) : query;
         writingSources = shouldRetrieve
           ? this.keepRelevant(await rag.retrieve(retrieveQuery, 4))
           : [];
@@ -600,7 +636,7 @@ class AIController {
         messages.splice(1, 0, { role: 'system', content: meetingBlock });
       }
 
-      messages.push({ role: 'user', content: query });
+      messages.push({ role: 'user', content: effectiveQuery });
 
       const sources = this.extractSources(writingSources);
 
