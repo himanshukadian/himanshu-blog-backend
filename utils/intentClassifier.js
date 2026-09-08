@@ -135,6 +135,27 @@ const isWritingListIntent = (nq) => {
   return matched && !WRITING_LIST_EXCLUDES.test(nq);
 };
 
+// Article-presence ("is there article on X", "any posts about Y"). Informational-
+// locate intent (Broder 2002): route signal only, falls through to RAG+LLM so the
+// assistant answers existence + links. MUST stay mutually exclusive with the
+// writing-list handler (topic-free "list latest N") and with digest intents.
+const WRITING_SEARCH_PATTERNS = [
+  /(^|\b)(is|are|was|were|do|does|did|have|has|had)\b.{0,20}\b(any|an|a|the|one|single|specific)\b.{0,10}\b(article|post|blog|writing|piece|write-up)s?\b/i,
+  /(^|\b)(any|some)\s+(articles?|posts?|blogs?|writings?|pieces?)\s+(about|on|covering|regarding|for)\b/i,
+  /(^|\b)(wrote|written|have you written|did you write|has he written|have you published)\b.{0,24}\b(about|on|covering|regarding)\b/i,
+  /(^|\b)\b(is|are|was|were|do|does|did|have|has|had)\b\s+there\b.{0,8}\b(an?|any)\b\s+(article|post|blog|writing|piece)s?\b/i,
+  /(^|\b)\b(is|are|was|were|do|does|did|have|has|had)\b\s+there\b.{0,20}\b(article|post|blog|writing|piece)s?\b.{0,12}\b(on|about|for|regarding)\b/i
+];
+
+const WRITING_SEARCH_TOPIC_GATE = /(article|post|blog|writing|piece|wrote|written|publish)/i;
+
+const WRITING_SEARCH_EXCLUDES = /(explain|summar|list|show|all|latest|recent|browse|view|what is|what's|tell me about|what .*learned|resume|job)/i;
+
+const isWritingSearchIntent = (nq) => {
+  const matched = WRITING_SEARCH_PATTERNS.some((re) => re.test(nq));
+  return matched && !WRITING_SEARCH_EXCLUDES.test(nq) && WRITING_SEARCH_TOPIC_GATE.test(nq);
+};
+
 const CONTACT_PATTERNS = /(email|e-?mail|contact|@|phone|number|linkedin|github|social|get in touch|reach (out |you )?|details|how (to|do|can) i (reach|contact|email|message)|message (him|himanshu))/i;
 
 const CONTACT_EXCLUDES = /(article|blog|resume|job|role|explain|summar|writing)/i;
@@ -228,6 +249,7 @@ const routeIntent = (query) => {
 
   const hits = [];
   if (isWritingListIntent(nq)) hits.push('writing-list');
+  if (isWritingSearchIntent(nq)) hits.push('writing-search');
   if (isContactIntent(nq)) hits.push('contact');
   if (isProjectsListIntent(nq)) hits.push('projects');
   if (isMeetingIntent(nq)) hits.push('meeting');
@@ -252,6 +274,7 @@ module.exports = {
   isContactIntent,
   isProjectsListIntent,
   isWritingListIntent,
+  isWritingSearchIntent,
   isArticleRelated,
   damerauLevenshtein,
   similarity,

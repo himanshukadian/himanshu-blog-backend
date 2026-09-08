@@ -409,4 +409,4 @@ init().catch(function(e) {
   console.warn('[rag] prewarm failed', e && e.message ? e.message : String(e));
 });
 
-module.exports = { init: init, retrieve: retrieve, getStats: getStats };
+module.exports = { init: init, retrieve: retrieve, getStats: getStats, tokenize: tokenize };

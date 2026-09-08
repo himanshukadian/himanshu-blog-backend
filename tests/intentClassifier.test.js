@@ -133,6 +133,40 @@ describe('cosine supplement tier: must NOT create false positives', () => {
 
   test.each(cases)('%s -> NOT meeting (no false positive)', (query) => {
     const r = routeIntent(query);
-    if (r) expect(r.intent).not.toBe('meeting');
+    expect(r ? r.intent : null).not.toBe('meeting');
+  });
+});
+
+describe('writing-search intent: presence queries route to writing-search', () => {
+  const cases = [
+    'is there article on it',
+    'is there an article about ai',
+    'any posts on kafka',
+    'do you have a blog about backups',
+    'wrote anything about distributed systems',
+    'have you written about mcp',
+    'is there a post about the cli'
+  ];
+
+  test.each(cases)('%s -> writing-search', (query) => {
+    const r = routeIntent(query);
+    expect(r ? r.intent : null).toBe('writing-search');
+  });
+});
+
+describe('writing-search intent: digest/list/out-of-scope must NOT match', () => {
+  const cases = [
+    ['summarize the AI agents article', null],
+    ['explain the distributed system article', null],
+    ['what did you learn building priceiq', null],
+    ['tell me about the priceiq post', null],
+    ['all your articles', 'writing-list'],
+    ['list 4 main points about this project', null],
+    ['email address of himanshu', 'contact']
+  ];
+
+  test.each(cases)('%s -> %s', (query, intent) => {
+    const r = routeIntent(query);
+    expect(r ? r.intent : null).toBe(intent);
   });
 });
