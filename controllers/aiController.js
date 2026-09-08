@@ -1,4 +1,5 @@
 const AppError = require('../utils/appError');
+const Article = require('../models/Article');
 
 class AIController {
   constructor() {
@@ -14,6 +15,47 @@ class AIController {
 
       if (!query || !query.trim()) {
         return next(new AppError('Query is required', 400));
+      }
+
+      const listIntent = (
+        /(\b(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blog|blogs|article|articles|writing|writings|post|posts)\b)/i.test(query) ||
+        /\b(what have you written|your blog posts|blog posts|all your writing|blogs you've written)\b/i.test(query)
+      );
+
+      if (listIntent) {
+        console.log('📚 Listing blog articles for:', query);
+        let articles = [];
+        try {
+          articles = await Article.find({ status: 'published' })
+            .select('title slug excerpt tags publishedAt')
+            .populate('tags', 'name')
+            .sort({ publishedAt: -1 })
+            .limit(10)
+            .lean();
+        } catch (e) {
+          articles = [];
+        }
+        if (articles.length === 0) {
+          return next(new AppError('No articles available right now.', 500));
+        }
+        const lines = articles.map((a, i) => {
+          const when = a.publishedAt
+            ? new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(new Date(a.publishedAt))
+            : '—';
+          const tags = Array.isArray(a.tags) && a.tags.length ? a.tags.map(t => t.name).join(', ') : '';
+          return `**${i + 1}. ${a.title}**\nhttps://blog.buildwithhimanshu.com/${a.slug}\n${when}${tags ? ' · ' + tags : ''}`;
+        });
+        const response = `📚 **Here are Himanshu's latest writing pieces:**\n\n${lines.join('\n\n')}\n\n**Tip:** ask me to *summarize* any of them, e.g. "summarize the AI agents article".`;
+        const writingSources = articles.map(a => ({
+          title: a.title,
+          slug: a.slug,
+          url: 'https://blog.buildwithhimanshu.com/' + a.slug,
+          snippet: (a.excerpt || '').slice(0, 280)
+        }));
+        return res.status(200).json({
+          status: 'success',
+          data: { response, model: 'writing-index', contextUsed: false, writingSources }
+        });
       }
 
       if (!this.apiKey) {
