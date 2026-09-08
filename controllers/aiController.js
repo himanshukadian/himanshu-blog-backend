@@ -90,6 +90,8 @@ class AIController {
 
       console.log(`💬 Including ${recentHistory.length} previous messages for context`);
 
+      messages.push({ role: 'user', content: query });
+
       let writingSources = [];
       try {
         const rag = require('../utils/articleRag');
