@@ -900,7 +900,10 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
 
     // Apply keyword highlighting only for PDF generation
     if (plainResume.customizedForJob && plainResume.keywordsMatched && plainResume.keywordsMatched.length > 0) {
-      templateData.experience = this.highlightKeywords(templateData.experience, plainResume.keywordsMatched);
+      templateData.experience = templateData.experience.map(exp => ({
+        ...exp,
+        highlights: this.highlightKeywords(exp.highlights, plainResume.keywordsMatched)
+      }));
       templateData.summary = this.highlightKeywords(templateData.summary, plainResume.keywordsMatched);
     }
 
