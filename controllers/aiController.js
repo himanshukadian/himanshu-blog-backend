@@ -155,6 +155,54 @@ class AIController {
     }
   };
 
+  // Always-on, cheap (temperature 0) resume-intent pass, run concurrently with
+  // the main answer so it usually adds no latency. Decides a UI affordance the
+  // client can offer (role picker / JD paste) WITHOUT keyword lists. The model
+  // judges from the current message plus a short prior-conversation transcript,
+  // so ellipsis/typo phrasings ("generate resune for ai ml", "ai ml") resolve.
+  detectResumeAction = async (query, chatHistory) => {
+    if (!this.apiKey) return false;
+    const roleOf = (m) => (m && typeof m === 'object' ? m.role || m.type : null);
+    const textOf = (m) => (m && typeof m === 'object' && typeof m.content === 'string' ? m.content : '');
+    const history = (Array.isArray(chatHistory) ? chatHistory : []).slice(-6);
+    const transcript = history
+      .map((e) => {
+        const who = roleOf(e) || 'user';
+        const txt = String(textOf(e) || '').trim();
+        return who !== 'system' && txt ? `${who}: ${txt.slice(0, 400)}` : null;
+      })
+      .filter(Boolean)
+      .join('\n');
+    const systemMsg =
+      'You classify user intent in a portfolio-assistant chat. Output ONLY JSON with one boolean field. ' +
+      'Use {"resume":true} ONLY when the user asks to generate, create, make, or customize/tailor a resume or CV — ' +
+      'including naming a target role (e.g. "for AI/ML") or providing a job description to tailor against. ' +
+      'Judge from the user\'s current message together with the prior conversation (e.g. a short follow-up like "ai ml" ' +
+      'after a resume request is still a resume request). ' +
+      'For factual questions about Himanshu, his projects, articles, meetings, or contact details output {"resume":false}.';
+    const userMsg = transcript
+      ? `Prior conversation:\n${transcript}\n\nCurrent user message:\n${String(query || '').slice(0, 600)}`
+      : `Current user message:\n${String(query || '').slice(0, 600)}`;
+    try {
+      const { response } = await this.callAIWithChain(
+        [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: userMsg }
+        ],
+        this.modelName,
+        false,
+        { temperature: 0 }
+      );
+      const text = String(response.data.choices?.[0]?.message?.content || '');
+      const m = text.match(/"resume"\s*:\s*(true|false)/i);
+      return m ? m[1].toLowerCase() === 'true' : false;
+    } catch (e) {
+      const status = e.response ? e.response.status : 0;
+      console.log(`[halo] resume-intent err=${e.code || (e.response ? `http-${status}` : e.message || 'err')}${status ? ` status=${status}` : ''}`);
+      return false;
+    }
+  };
+
   callAI = async (messages, model, stream, options = {}) => {
     const response = await axios.post(this.apiEndpoint, {
       model,
@@ -428,10 +476,15 @@ class AIController {
 
       let aiResponse;
       let actualModel;
+      let action = null;
       try {
-        const { response, model } = await this.callAIWithChain(messages, this.modelName, false);
-        actualModel = model;
-        aiResponse = response.data.choices?.[0]?.message?.content;
+        const [gen, resumeAction] = await Promise.all([
+          this.callAIWithChain(messages, this.modelName, false),
+          this.detectResumeAction(query, chatHistory)
+        ]);
+        actualModel = gen.model;
+        aiResponse = gen.response.data.choices?.[0]?.message?.content;
+        action = resumeAction ? 'resume' : null;
       } catch (e) {
         const status = e.response ? e.response.status : 0;
         errCode = e.code || `http-${status}`;
@@ -454,7 +507,8 @@ class AIController {
         model: actualModel,
         contextUsed: writingSources.length > 0,
         writingSources: this.extractSources(writingSources),
-        retrievedCount: writingSources.length
+        retrievedCount: writingSources.length,
+        action
       };
 
       if (!meetingIntent && aiResponse && aiResponse.length > 20) {
@@ -669,7 +723,7 @@ class AIController {
           modelUsed = cached.model || 'cache';
           res.write(`data: ${JSON.stringify({ type: 'start', model: 'cache', sources: Array.isArray(cached.writingSources) ? cached.writingSources : [] })}\n\n`);
           res.write(`data: ${JSON.stringify({ type: 'delta', text: cached.response })}\n\n`);
-          res.write(`data: ${JSON.stringify({ type: 'done', sources: Array.isArray(cached.writingSources) ? cached.writingSources : [] })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: 'done', sources: Array.isArray(cached.writingSources) ? cached.writingSources : [], action: cached.action || null })}\n\n`);
           console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=cache ms=${Date.now() - start} err=cache-hit`);
           res.end();
           return;
@@ -679,9 +733,14 @@ class AIController {
       res.write(`data: ${JSON.stringify({ type: 'start', model: modelUsed, sources })}\n\n`);
 
       try {
-        const { response, model } = await this.callAIWithChain(messages, modelUsed, true);
-        modelUsed = model;
-        console.log(`[halo] stream chain resolved model=${model} for query="${query.slice(0, 120)}"`);
+        const [gen, resumeAction] = await Promise.all([
+          this.callAIWithChain(messages, modelUsed, true),
+          this.detectResumeAction(query, chatHistory)
+        ]);
+        modelUsed = gen.model;
+        const response = gen.response;
+        const action = resumeAction ? 'resume' : null;
+        console.log(`[halo] stream chain resolved model=${gen.model} for query="${query.slice(0, 120)}" action=${action}`);
 
         const readline = require('readline');
         const rl = readline.createInterface({ input: response.data });
@@ -713,17 +772,18 @@ class AIController {
 
         if (closed) return;
 
-        res.write(`data: ${JSON.stringify({ type: 'done', sources })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', sources, action })}\n\n`);
         res.end();
 
-        console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=${modelUsed} ms=${Date.now() - start} err=none`);
+        console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=${modelUsed} ms=${Date.now() - start} err=none action=${action}`);
         if (!meetingIntent && accumulated && accumulated.length > 20) {
           this.cacheSet(query, {
             response: accumulated,
             model: modelUsed,
             contextUsed: writingSources.length > 0,
             writingSources: sources,
-            retrievedCount: sources.length
+            retrievedCount: sources.length,
+            action
           });
         }
       } catch (e) {
