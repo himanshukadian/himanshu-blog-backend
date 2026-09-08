@@ -314,7 +314,7 @@ const scheduleMeeting = async (req, res, next) => {
     try {
       const eventType = await calendly.resolveEventType();
       let strategy = 'mock_no_token';
-      let bookingUrl = `${process.env.MEETING_PLATFORM_URL || 'https://meet.google.com'}/new`;
+      let bookingUrl = '';
 
       if (eventType.configured && eventType.eventType) {
         const booking = await calendly.createInvitee(eventType.eventType.uri, {
@@ -352,7 +352,7 @@ const scheduleMeeting = async (req, res, next) => {
         status: 'success',
         message: strategy === 'calendly'
           ? 'Meeting scheduled successfully! You\'ll receive a confirmation email shortly.'
-          : 'Meeting request received (Calendly booking pending token setup). You\'ll receive a confirmation email shortly.',
+          : 'Booking request received — I\'ll confirm your slot by email shortly.',
         data: {
           meetingId: meetingDetails.id,
           scheduledTime: selectedSlot,
