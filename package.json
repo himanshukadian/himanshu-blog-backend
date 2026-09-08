@@ -29,6 +29,7 @@
   "dependencies": {
     "axios": "^1.9.0",
     "bcryptjs": "^2.4.3",
+    "calendly-cli": "^1.0.5",
     "cloudinary": "^2.6.1",
     "compression": "^1.8.0",
     "cors": "^2.8.5",

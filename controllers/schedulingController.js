@@ -1,6 +1,7 @@
 const AppError = require('../utils/appError');
 const validator = require('validator');
 const axios = require('axios');
+const calendly = require('../utils/calendlyCli');
 
 // Scheduling Agent Class
 class SchedulingAgent {
@@ -310,33 +311,62 @@ const scheduleMeeting = async (req, res, next) => {
 
     console.log(`📅 Scheduling ${meetingType} meeting for ${sanitizedData.email}`);
 
-    // Here you would integrate with calendar services
-    // For now, we'll create a meeting record and send confirmation
+    try {
+      const eventType = await calendly.resolveEventType();
+      let strategy = 'mock_no_token';
+      let bookingUrl = `${process.env.MEETING_PLATFORM_URL || 'https://meet.google.com'}/new`;
 
-    const meetingDetails = {
-      id: generateMeetingId(),
-      ...sanitizedData,
-      meetingLink: `${process.env.MEETING_PLATFORM_URL || 'https://meet.google.com'}/new`,
-      confirmationLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/meeting/confirm/${generateMeetingId()}`,
-      calendarEvent: await generateCalendarEvent(sanitizedData)
-    };
+      if (eventType.configured && eventType.eventType) {
+        const booking = await calendly.createInvitee(eventType.eventType.uri, {
+          startTime: sanitizedData.selectedSlot,
+          name: sanitizedData.name,
+          email: sanitizedData.email,
+          timezone: 'Asia/Kolkata'
+        });
 
-    // Send confirmation email
-    await sendMeetingConfirmation(meetingDetails);
-
-    console.log(`✅ Meeting scheduled successfully: ${meetingDetails.id}`);
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Meeting scheduled successfully! You\'ll receive a confirmation email shortly.',
-      data: {
-        meetingId: meetingDetails.id,
-        scheduledTime: selectedSlot,
-        meetingType: meetingType,
-        duration: duration,
-        agenda: agenda
+        if (booking.ok) {
+          strategy = 'calendly';
+          bookingUrl = booking.bookingUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/meeting/confirm/${generateMeetingId()}`;
+        } else {
+          strategy = 'calendly_fallback';
+          console.error('Calendly booking failed, falling back:', booking.error);
+        }
+      } else {
+        strategy = 'mock_no_token';
       }
-    });
+
+      const meetingDetails = {
+        id: generateMeetingId(),
+        ...sanitizedData,
+        meetingLink: bookingUrl,
+        confirmationLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/meeting/confirm/${generateMeetingId()}`,
+        calendarEvent: await generateCalendarEvent(sanitizedData),
+        strategy
+      };
+
+      await sendMeetingConfirmation(meetingDetails);
+
+      console.log(`✅ [${strategy}] Meeting scheduled successfully: ${meetingDetails.id}`);
+
+      return res.status(200).json({
+        status: 'success',
+        message: strategy === 'calendly'
+          ? 'Meeting scheduled successfully! You\'ll receive a confirmation email shortly.'
+          : 'Meeting request received (Calendly booking pending token setup). You\'ll receive a confirmation email shortly.',
+        data: {
+          meetingId: meetingDetails.id,
+          scheduledTime: selectedSlot,
+          meetingType: meetingType,
+          duration: duration,
+          agenda: agenda,
+          strategy,
+          meetingLink: meetingDetails.meetingLink
+        }
+      });
+    } catch (bookingError) {
+      console.error('Calendly booking error:', bookingError);
+      return next(new AppError('Failed to schedule meeting via Calendly', 500));
+    }
 
   } catch (error) {
     console.error('Meeting scheduling error:', error);
@@ -349,13 +379,22 @@ const getAvailableSlots = async (req, res, next) => {
   try {
     const { days = 14, meetingType = 'general' } = req.query;
     
-    const slots = schedulingAgent.recommendSlots(meetingType, 'normal');
-    const limitedSlots = slots.slice(0, parseInt(days) * 2); // 2 slots per day average
+    const calendlyResult = await calendly.getEventTimesByDuration(parseInt(days));
+    const configured = calendly.IS_CONFIGURED;
+
+    let availableSlots = [];
+    if (calendlyResult.configured && calendlyResult.slots.length > 0) {
+      availableSlots = calendlyResult.slots;
+    } else {
+      const mockSlots = schedulingAgent.recommendSlots(meetingType, 'normal');
+      availableSlots = mockSlots.slice(0, parseInt(days) * 2);
+    }
 
     res.status(200).json({
       status: 'success',
       data: {
-        availableSlots: limitedSlots,
+        configured,
+        availableSlots,
         timezone: 'Asia/Kolkata',
         meetingTypes: Object.keys(schedulingAgent.meetingTypes)
       }
