@@ -99,7 +99,7 @@ class AIController {
       model,
       messages,
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 4096,
       top_p: 0.9,
       stream: stream || false
     }, {
@@ -428,7 +428,7 @@ class AIController {
           model: this.modelName,
           messages,
           temperature: 0.7,
-          max_tokens: 800,
+          max_tokens: 4096,
           top_p: 0.9,
           stream: true
         }, {

@@ -448,7 +448,7 @@ Return ONLY valid JSON without any markdown formatting or explanation.`;
           }
         ],
         temperature: 0.3,
-        max_tokens: 2000
+        max_tokens: 8000
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -593,7 +593,7 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
         model: this.modelName,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
-        max_tokens: 200
+        max_tokens: 2000
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -1106,7 +1106,7 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
             content: prompt
           }
         ],
-        max_tokens: 200,
+        max_tokens: 2000,
         temperature: 0.1
       }, {
         headers: {
