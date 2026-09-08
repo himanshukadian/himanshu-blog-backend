@@ -17,12 +17,62 @@ const isMeetingIntent = (query) => MEETING_INTENT.test(query) && !MEETING_EXCLUD
 
 const GRACEFUL_RESPONSE = "⚠️ My AI service is temporarily unreachable — but I'm still here! Ask me to \"list\" my latest blog articles (e.g. 'all posts'), or browse https://blog.buildwithhimanshu.com. Try again in a moment.";
 
+const DEFAULT_MODEL_CHAIN = 'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemini-3.5-flash-lite';
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 80;
+
+const CONTACT_FACTS = {
+  email: 'himanshu.c.official@gmail.com',
+  linkedin: 'https://www.linkedin.com/in/himanshucofficial',
+  github: 'https://github.com/himanshukadian',
+  portfolio: 'https://portfolio.buildwithhimanshu.com',
+  blog: 'https://blog.buildwithhimanshu.com',
+  calendly: 'https://calendly.com/himanshu-c-official/30min',
+  timezone: 'IST (Asia/Kolkata)'
+};
+
+const PROJECT_FACTS = [
+  { name: 'AI-powered analytics assistant', summary: 'Turns natural-language questions into optimized SQL for self-service analytics; cut ad-hoc data-request turnaround by ~30%.' },
+  { name: 'Lane Management System', summary: 'Routing optimization across 50–70 cost/ops/performance parameters; reduced fulfillment costs ~20% and improved SLA adherence ~15%.' },
+  { name: 'High-throughput monitoring & insights platform', summary: 'Distributed microservices processing 50,000+ events/min for real-time observability.' },
+  { name: 'Unified label printing API', summary: 'Standardized label integrations across clients; supports 100 labels/sec at low latency with high availability.' },
+  { name: 'PriceIQ', summary: 'Predictive pricing intelligence that ingests prices, learns baselines, and flags anomalies before margin decisions.', url: 'https://blog.buildwithhimanshu.com/what-i-learned-building-priceiq' },
+  { name: 'Terminal portfolio + AI assistant', summary: 'The interactive CLI-style portfolio you are using right now.', url: 'https://portfolio.buildwithhimanshu.com' }
+];
+
+const isContactIntent = (query) => {
+  return (
+    /(email|e-?mail|contact|@|phone|number|linkedin|github|social|get in touch|reach (out |you )?|details|how (to|do|can) i (reach|contact|email|message)|message (him|himanshu))/i.test(query) &&
+    !/(article|blog|resume|job|role|explain|summar|writing)/i.test(query)
+  );
+};
+
+const isProjectsListIntent = (query) => {
+  return (
+    /projects?/i.test(query) &&
+    /(list|show|see|view|all|built|build|made|created|worked on|portfolio|what)/i.test(query) &&
+    !/(explain|summar|article|blog|writing|how does|why i built)/i.test(query)
+  );
+};
+
+const isArticleRelated = (query) => {
+  return /(article|blog|writing|writings|write|posts?|published|summariz|explain|what .*learned|lessons|price ?iq|cli|distributed systems|ai agents|mcp|terminal|portfolio as a terminal)/i.test(query);
+};
+
+const GROUNDING_RULES = "## Grounding Rules (follow strictly)\n1. The \"About Himanshu\" section of this system prompt is the authoritative source for facts about his projects, skills, experience, and contact details.\n2. Retrieved article context, when present, is ONLY for answering questions directly about those specific blog articles or his writing. Never use article text to answer questions about his projects, resume, or contact details.\n3. Never claim you lack information that is present above. If asked to list his projects or provide contact details, use the About section and answer confidently.\n4. Never invent projects, metrics, emails, or links that are not present above.";
+
 class AIController {
   constructor() {
     this.apiEndpoint = process.env.GEMINI_API_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    this.fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+    const configuredChain = String(process.env.GEMINI_MODEL_CHAIN || DEFAULT_MODEL_CHAIN)
+      .split(',').map(s => s.trim()).filter(Boolean);
+    this.modelChain = configuredChain.length ? configuredChain : DEFAULT_MODEL_CHAIN.split(',');
+    this.modelName = this.modelChain[0];
+    this.fallbackModel = this.modelChain[1] || this.modelChain[0];
     this.apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    this.cooldowns = {};
+    this.cooldownMs = Number(process.env.AI_MODEL_COOLDOWN_MS || 5000);
+    this.responseCache = new Map();
     this.axiosConfig = {
       timeout: 40000,
       maxBodyLength: 20000,
@@ -35,7 +85,7 @@ class AIController {
   }
 
   buildMessages = (query, chatHistory) => {
-    const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    const messages = [{ role: 'system', content: SYSTEM_PROMPT + '\n\n' + GROUNDING_RULES }];
     const sanitizedHistory = (Array.isArray(chatHistory) ? chatHistory : [])
       .map(m => ({
         type: m.type,
@@ -122,6 +172,109 @@ class AIController {
     };
   };
 
+  sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  markCooldown = (model, msOverride) => {
+    this.cooldowns[model] = Date.now() + (msOverride || this.cooldownMs);
+  };
+
+  // Iterates the whole model chain (rotating start point) so each model gets
+  // its own quota window, with exponential backoff + jitter on 429/5xx and
+  // no retry wasted on permanent 400/403/404.
+  callAIWithChain = async (messages, model, stream) => {
+    const startIdx = Math.max(0, this.modelChain.indexOf(model));
+    const ordered = this.modelChain.slice(startIdx).concat(this.modelChain.slice(0, startIdx));
+    let lastError = null;
+
+    for (const candidate of ordered) {
+      const now = Date.now();
+      if (this.cooldowns[candidate] && this.cooldowns[candidate] > now) {
+        continue;
+      }
+      let attempt = 0;
+      const maxAttempts = 3;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        try {
+          const response = await this.callAI(messages, candidate, stream);
+          this.cooldowns[candidate] = 0;
+          return { response, model: candidate };
+        } catch (e) {
+          lastError = e;
+          const status = e.response ? e.response.status : 0;
+          const code = e.code || '';
+          const isNetwork = code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ECONNABORTED' || !e.response;
+          const isRateLimit = status === 429 || status === 503 || status === 500;
+          const isPermanent = status === 400 || status === 401 || status === 403 || status === 404;
+          if (isRateLimit || isNetwork) {
+            const backoff = (attempt === 1 ? 700 : attempt * 1600) + Math.random() * 400;
+            this.markCooldown(candidate, backoff + 2500);
+            if (attempt < maxAttempts) {
+              await this.sleepMs(backoff);
+              continue;
+            }
+            break;
+          }
+          if (isPermanent) {
+            this.markCooldown(candidate, 10 * 60 * 1000);
+            break;
+          }
+          break;
+        }
+      }
+    }
+    throw lastError || new Error('All AI models unavailable');
+  };
+
+  cacheGet = (query) => {
+    if (!query) return null;
+    const entry = this.responseCache.get(query);
+    if (!entry) return null;
+    if (Date.now() - entry.at > CACHE_TTL_MS) {
+      this.responseCache.delete(query);
+      return null;
+    }
+    return entry.value;
+  };
+
+  cacheSet = (query, value) => {
+    if (!query) return;
+    this.responseCache.delete(query);
+    this.responseCache.set(query, { at: Date.now(), value });
+    if (this.responseCache.size > CACHE_MAX_ENTRIES) {
+      const oldest = this.responseCache.keys().next().value;
+      this.responseCache.delete(oldest);
+    }
+  };
+
+  buildContactResponse = () => {
+    const c = CONTACT_FACTS;
+    return [
+      `📬 You can reach Himanshu at:`,
+      `- **Email:** ${c.email}`,
+      `- **LinkedIn:** ${c.linkedin}`,
+      `- **GitHub:** ${c.github}`,
+      `- **Portfolio:** ${c.portfolio}`,
+      `- **Blog:** ${c.blog}`,
+      ``,
+      `📅 Want to talk? Book a meeting: ${c.calendly} (${c.timezone})`
+    ].join('\n');
+  };
+
+  buildProjectsResponse = () => {
+    const lines = PROJECT_FACTS.map((p) => {
+      const summary = `**${p.name}** — ${p.summary}`;
+      return p.url ? `${summary}\n${p.url}` : summary;
+    });
+    return [
+      `🛠️ Here are some of Himanshu's key projects:`,
+      '',
+      ...lines.map((l, i) => `${i + 1}. ${l}`),
+      '',
+      `Want more detail on any of these, his resume, or a meeting?`
+    ].join('\n');
+  };
+
   generateResponse = async (req, res, next) => {
     const start = Date.now();
     let modelUsed = 'none';
@@ -190,6 +343,24 @@ class AIController {
         });
       }
 
+      if (isContactIntent(query)) {
+        const response = this.buildContactResponse();
+        console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
+        return res.status(200).json({
+          status: 'success',
+          data: { response, model: 'facts', contextUsed: false, writingSources: [], retrievedCount: 0 }
+        });
+      }
+
+      if (isProjectsListIntent(query)) {
+        const response = this.buildProjectsResponse();
+        console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
+        return res.status(200).json({
+          status: 'success',
+          data: { response, model: 'facts', contextUsed: false, writingSources: [], retrievedCount: 0 }
+        });
+      }
+
       if (!this.apiKey) {
         console.log('[halo] AI not configured, returning graceful failure');
         console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=fallback ms=${Date.now() - start} err=not-configured`);
@@ -200,10 +371,11 @@ class AIController {
 
       let writingSources = [];
       const meetingIntent = isMeetingIntent(query);
+      const shouldRetrieve = !meetingIntent && isArticleRelated(query);
       try {
-        writingSources = meetingIntent
-          ? []
-          : this.keepRelevant(await rag.retrieve(query, 4));
+        writingSources = shouldRetrieve
+          ? this.keepRelevant(await rag.retrieve(query, 4))
+          : [];
       } catch (e) {
         writingSources = [];
       }
@@ -220,42 +392,27 @@ class AIController {
 
       messages.push({ role: 'user', content: query });
 
+      if (!meetingIntent) {
+        const cached = this.cacheGet(query);
+        if (cached) {
+          modelUsed = cached.model || 'cache';
+          console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=cache ms=${Date.now() - start} err=cache-hit`);
+          return res.status(200).json({ status: 'success', data: cached });
+        }
+      }
+
       let aiResponse;
       let actualModel;
       try {
-        const response = await this.callAI(messages, this.modelName, false);
-        actualModel = this.modelName;
+        const { response, model } = await this.callAIWithChain(messages, this.modelName, false);
+        actualModel = model;
         aiResponse = response.data.choices?.[0]?.message?.content;
       } catch (e) {
         const status = e.response ? e.response.status : 0;
-        const code = e.code || '';
-        const isHttpError = status >= 400 && status <= 599;
-        const isNetworkError = code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ECONNABORTED' || !e.response;
-        if (isNetworkError) {
-          errCode = code || 'network-error';
-          console.error(`[halo] AI network error code=${code} status=${status}`);
-          console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
-          return res.status(200).json(this.gracefulFailure(writingSources));
-        }
-        if (isHttpError) {
-          errCode = `http-${status}`;
-          if (status === 401 || status === 403) {
-            console.error(`[halo] AI auth error status=${status} — logging loudly`);
-          }
-          try {
-            const retryResponse = await this.callAI(messages, this.fallbackModel, false);
-            actualModel = this.fallbackModel;
-            aiResponse = retryResponse.data.choices?.[0]?.message?.content;
-          } catch (retryErr) {
-            console.error(`[halo] AI fallback failed code=${retryErr.code} status=${retryErr.response ? retryErr.response.status : 0}`);
-            console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
-            return res.status(200).json(this.gracefulFailure(writingSources));
-          }
-        } else {
-          errCode = code || 'unknown';
-          console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
-          return res.status(200).json(this.gracefulFailure(writingSources));
-        }
+        errCode = e.code || `http-${status}`;
+        console.error(`[halo] AI chain exhausted code=${e.code || ''} status=${status || 0}`);
+        console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=fallback ms=${Date.now() - start} err=${errCode}`);
+        return res.status(200).json(this.gracefulFailure(writingSources));
       }
 
       if (!aiResponse) {
@@ -267,16 +424,19 @@ class AIController {
       modelUsed = actualModel;
       console.log(`[halo] query="${query.slice(0, 120)}" sources=${writingSources.length} model=${actualModel} ms=${Date.now() - start} err=none`);
 
-      res.status(200).json({
-        status: 'success',
-        data: {
-          response: aiResponse,
-          model: actualModel,
-          contextUsed: writingSources.length > 0,
-          writingSources: this.extractSources(writingSources),
-          retrievedCount: writingSources.length
-        }
-      });
+      const payload = {
+        response: aiResponse,
+        model: actualModel,
+        contextUsed: writingSources.length > 0,
+        writingSources: this.extractSources(writingSources),
+        retrievedCount: writingSources.length
+      };
+
+      if (!meetingIntent && aiResponse && aiResponse.length > 20) {
+        this.cacheSet(query, payload);
+      }
+
+      res.status(200).json({ status: 'success', data: payload });
     } catch (error) {
       const code = error.code || error.response ? `http-${error.response.status}` : 'unknown';
       console.error('[halo] AI Controller Error:', error);
@@ -365,6 +525,40 @@ class AIController {
         return;
       }
 
+      if (isContactIntent(query)) {
+        const response = this.buildContactResponse();
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        });
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ type: 'start', model: 'facts', sources: [] })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'delta', text: response })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', sources: [] })}\n\n`);
+        console.log(`[halo] stream query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
+        res.end();
+        return;
+      }
+
+      if (isProjectsListIntent(query)) {
+        const response = this.buildProjectsResponse();
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        });
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ type: 'start', model: 'facts', sources: [] })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'delta', text: response })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', sources: [] })}\n\n`);
+        console.log(`[halo] stream query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
+        res.end();
+        return;
+      }
+
       if (!this.apiKey) {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -382,10 +576,11 @@ class AIController {
 
       writingSources = [];
       const meetingIntent = isMeetingIntent(query);
+      const shouldRetrieve = !meetingIntent && isArticleRelated(query);
       try {
-        writingSources = meetingIntent
-          ? []
-          : this.keepRelevant(await rag.retrieve(query, 4));
+        writingSources = shouldRetrieve
+          ? this.keepRelevant(await rag.retrieve(query, 4))
+          : [];
       } catch (e) {
         writingSources = [];
       }
@@ -421,24 +616,29 @@ class AIController {
       res.writeHead(200, headers);
       res.flushHeaders();
 
+      if (!meetingIntent) {
+        const cached = this.cacheGet(query);
+        if (cached) {
+          modelUsed = cached.model || 'cache';
+          res.write(`data: ${JSON.stringify({ type: 'start', model: 'cache', sources: Array.isArray(cached.writingSources) ? cached.writingSources : [] })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: 'delta', text: cached.response })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: 'done', sources: Array.isArray(cached.writingSources) ? cached.writingSources : [] })}\n\n`);
+          console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=cache ms=${Date.now() - start} err=cache-hit`);
+          res.end();
+          return;
+        }
+      }
+
       res.write(`data: ${JSON.stringify({ type: 'start', model: modelUsed, sources })}\n\n`);
 
       try {
-        const response = await axios.post(this.apiEndpoint, {
-          model: this.modelName,
-          messages,
-          temperature: 0.7,
-          max_tokens: 4096,
-          top_p: 0.9,
-          stream: true
-        }, {
-          ...this.axiosConfig,
-          responseType: 'stream',
-          signal: controller.signal
-        });
+        const { response, model } = await this.callAIWithChain(messages, modelUsed, true);
+        modelUsed = model;
+        console.log(`[halo] stream chain resolved model=${model} for query="${query.slice(0, 120)}"`);
 
         const readline = require('readline');
         const rl = readline.createInterface({ input: response.data });
+        let accumulated = '';
 
         rl.on('line', (line) => {
           if (closed) return;
@@ -450,6 +650,7 @@ class AIController {
             const json = JSON.parse(payload);
             const delta = json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content;
             if (delta) {
+              accumulated += delta;
               res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
             }
           } catch (e) {
@@ -469,6 +670,15 @@ class AIController {
         res.end();
 
         console.log(`[halo] stream query="${query.slice(0, 120)}" sources=${writingSources.length} model=${modelUsed} ms=${Date.now() - start} err=none`);
+        if (!meetingIntent && accumulated && accumulated.length > 20) {
+          this.cacheSet(query, {
+            response: accumulated,
+            model: modelUsed,
+            contextUsed: writingSources.length > 0,
+            writingSources: sources,
+            retrievedCount: sources.length
+          });
+        }
       } catch (e) {
         const code = e.code || (e.response ? `http-${e.response.status}` : 'error');
         console.error(`[halo] stream AI error code=${code}`);
@@ -512,6 +722,7 @@ class AIController {
       data: {
         aiServiceConfigured: isConfigured,
         model: this.modelName,
+        modelChain: this.modelChain,
         ready: isConfigured
       }
     });
