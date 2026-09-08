@@ -22,6 +22,9 @@ router.use(aiRateLimit);
 // AI chat endpoint
 router.post('/chat', aiController.generateResponse);
 
+// AI blog article retrieval endpoint
+router.post('/rag', aiController.retrieveArticles);
+
 // AI service health check
 router.get('/health', aiController.healthCheck);
 
