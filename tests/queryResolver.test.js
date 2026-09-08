@@ -1,63 +1,4 @@
-const { resolveQuery, hasUsableHistory } = require('../utils/queryResolver');
-
-describe('queryResolver: anaphoric follow-ups resolve against prior topic', () => {
-  const history = [
-    { type: 'user', content: 'AI work' },
-    { type: 'assistant', content: 'Himanshu is passionate about AI and LLMs, built an AI-powered analytics assistant.' }
-  ];
-
-  test('"is there article on it" -> carries the AI topic', () => {
-    const resolved = resolveQuery('is there article on it', history);
-    expect(resolved).not.toBeNull();
-    expect(resolved).toMatch(/ai/);
-    expect(resolved).toMatch(/work/);
-  });
-
-  test('"any posts on that" -> carries the AI topic', () => {
-    const resolved = resolveQuery('any posts on that', history);
-    expect(resolved).not.toBeNull();
-    expect(resolved).toMatch(/ai/);
-  });
-
-  test('"is there one like this?" after an article turn -> carries prior topic', () => {
-    const h = [
-      { type: 'user', content: 'show me the distributed systems article' },
-      { type: 'assistant', content: 'Here is the high-throughput monitoring platform article.' }
-    ];
-    const resolved = resolveQuery('is there one like this?', h);
-    expect(resolved).not.toBeNull();
-    expect(resolved).toMatch(/distribut/);
-  });
-});
-
-describe('queryResolver: self-contained queries are untouched', () => {
-  const history = [
-    { type: 'user', content: 'AI work' },
-    { type: 'assistant', content: 'Himanshu is passionate about AI.' }
-  ];
-
-  test('rich marker-free query -> null (no rewrite)', () => {
-    expect(resolveQuery('summarize the AI agents article', history)).toBeNull();
-    expect(resolveQuery('show me all ur projects', history)).toBeNull();
-  });
-
-  test('determiner usage ("this project", "that article") -> null (self-contained)', () => {
-    expect(resolveQuery('list 4 main points about this project', history)).toBeNull();
-    expect(resolveQuery('expand on that article', history)).toBeNull();
-    expect(resolveQuery('summarize this article about mcp', history)).toBeNull();
-  });
-
-  test('no history -> null (cannot resolve)', () => {
-    expect(resolveQuery('is there article on it', [])).toBeNull();
-  });
-
-  test('history ends with same query (dup) is skipped', () => {
-    const dupHistory = [...history, { type: 'user', content: 'is there article on it' }];
-    const resolved = resolveQuery('is there article on it', dupHistory);
-    expect(resolved).not.toBeNull();
-    expect(resolved).toMatch(/ai/);
-  });
-});
+const { hasUsableHistory, buildRewritePrompt } = require('../utils/queryResolver');
 
 describe('queryResolver: hasUsableHistory is the only LLM-rewrite gate', () => {
   test('empty / null / irrelevant history -> false', () => {
@@ -74,5 +15,31 @@ describe('queryResolver: hasUsableHistory is the only LLM-rewrite gate', () => {
 
   test('whitespace-only turns are ignored', () => {
     expect(hasUsableHistory([{ type: 'user', content: '   ' }])).toBe(false);
+  });
+});
+
+describe('queryResolver: buildRewritePrompt carries the follow-up input', () => {
+  const history = [
+    { type: 'user', content: 'projects' },
+    { type: 'assistant', content: 'Here are some of Himanshu key projects: AI-powered analytics assistant, Lane Management System.' }
+  ];
+
+  test('prompt includes the current query as Follow Up Input', () => {
+    const [system, user] = buildRewritePrompt('in 2 points', history);
+    expect(user.content).toContain('Follow Up Input: in 2 points');
+    expect(user.content).toContain('Standalone question:');
+    expect(user.content).toContain('User: projects');
+    expect(user.content).toContain('Assistant: Here are some of Himanshu key projects');
+    expect(system.role).toBe('system');
+  });
+
+  test('prompt requires verbatim output for self-contained queries', () => {
+    const [, user] = buildRewritePrompt('what is priceiq', history);
+    expect(user.content).toContain('re-output it verbatim');
+  });
+
+  test('works with no history too', () => {
+    const [, user] = buildRewritePrompt('in bullet points', []);
+    expect(user.content).toContain('Follow Up Input: in bullet points');
   });
 });
