@@ -313,8 +313,9 @@ const scheduleMeeting = async (req, res, next) => {
 
     try {
       const eventType = await calendly.resolveEventType();
-      let strategy = 'mock_no_token';
-      let bookingUrl = '';
+      const CALENDLY_LINK = 'https://calendly.com/himanshu-c-official/30min'
+      let strategy = 'mock_no_token'
+      let bookingUrl = CALENDLY_LINK
 
       if (eventType.configured && eventType.eventType) {
         const booking = await calendly.createInvitee(eventType.eventType.uri, {
@@ -322,17 +323,17 @@ const scheduleMeeting = async (req, res, next) => {
           name: sanitizedData.name,
           email: sanitizedData.email,
           timezone: 'Asia/Kolkata'
-        });
+        })
 
         if (booking.ok) {
-          strategy = 'calendly';
-          bookingUrl = booking.bookingUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/meeting/confirm/${generateMeetingId()}`;
+          strategy = 'calendly'
+          bookingUrl = booking.bookingUrl || CALENDLY_LINK
         } else {
-          strategy = 'calendly_fallback';
-          console.error('Calendly booking failed, falling back:', booking.error);
+          strategy = 'calendly_fallback'
+          console.error('Calendly booking failed, falling back:', booking.error)
         }
       } else {
-        strategy = 'mock_no_token';
+        strategy = 'mock_no_token'
       }
 
       const meetingDetails = {
@@ -352,7 +353,7 @@ const scheduleMeeting = async (req, res, next) => {
         status: 'success',
         message: strategy === 'calendly'
           ? 'Meeting scheduled successfully! You\'ll receive a confirmation email shortly.'
-          : 'Booking request received — I\'ll confirm your slot by email shortly.',
+          : 'Calendly is busy right now — book directly at the link below, or I\'ll confirm by email shortly.',
         data: {
           meetingId: meetingDetails.id,
           scheduledTime: selectedSlot,
