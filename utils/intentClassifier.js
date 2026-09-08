@@ -48,7 +48,13 @@ const SEEDS = {
     'get on a call', 'find a time', 'when are you free', 'free time',
     'are you available', 'book a slot', 'available slots', 'can we talk',
     'wanna have a call', 'can we talk tomorrow', 'i need a meeting',
-    'lets have a call', 'set a meeting'
+    'lets have a call', 'set a meeting', "let's connect", 'want to connect',
+    'would love to connect', 'let us connect', 'can we connect',
+    'wanna connect', 'i would like to connect', 'get in touch',
+    "let's collaborate", 'want to collaborate', 'would love to collaborate',
+    'can we collaborate', 'looking to collaborate', 'open to collaborate',
+    'open to collab', 'interested in collaborating', 'touch base', 'sending you an invite',
+    'can you send me an invite'
   ],
   contact: [
     'email address', 'your email', 'his email', 'contact details', 'contact info',
@@ -159,13 +165,24 @@ const isProjectsListIntent = (nq) => {
   return true;
 };
 
+// Meeting request phrases (substring-safe, guarded by MEETING_EXCLUDES for
+// article/resume/contact words). Includes connect/collaborate variants per the
+// prototype-expansion principle (3-5 phrasings per intent, real user wording).
 const MEETING_INTENT =
-  /(?:let'?s?\s+(?:set\s*up|setup|meet|talk|connect|chat)|(?:set\s*up|setup|schedule|book|reserve|arrange|plan)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|wanna\s+(?:have\s+a\s+)?(?:talk|call|meeting)|let'?s?\s+catch\s+up|get\s+on\s+a\s+call|lock\s+in\s+a\s+slot|find\s+a\s+time|availab|avail|slot|slots|calendly|timezone|when\s+(?:are|is)\s+(?:you|he)\s+free|free\s+time|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot))/i;
+  /(?:let'?s?\s+(?:set\s*up|setup|meet|talk|connect|chat|collaborate)|(?:set\s*up|setup|schedule|book|reserve|arrange|plan)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|wanna\s+(?:have\s+a\s+)?(?:talk|call|meeting)|let'?s?\s+catch\s+up|get\s+on\s+a\s+call|lock\s+in\s+a\s+slot|find\s+a\s+time|availab|avail|slot|slots|calendly|timezone|when\s+(?:are|is)\s+(?:you|he)\s+free|free\s+time|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot|connect|collaborate)|touch\s+base\b|keep\s+in\s+touch|set\s+a\s+time|get\s+together|grab\s+(?:a\s+)?(?:coffee|chat)|talk\s+(?:it\s+)?over)/i;
+
+// Bare-utterance anchors (iron law: ^hi$ matches alone; hi would catch too much).
+// Only the whole trimmed query reaching these counts as a meeting request, so
+// "invite me to your github" is NOT meeting (falls to contact intent).
+const MEETING_BARE_ANCHOR = /^(?:invite|connect|collab(?:orate|oration)?|touch\s+base|chat|talk)[!.?]*$/i;
 
 const MEETING_EXCLUDES =
-  /(?:articles?|blog|writing|learned|explain|summar|price\s?iq|cli|agent|distributed|post|read|what did|how did|why did)/i;
+  /(?:articles?|blog|writing|learned|explain|summar|price\s?iq|cli|agent|distributed|post|read|what did|how did|why did|github|linkedin|email|resume|job)/i;
 
-const isMeetingIntent = (nq) => MEETING_INTENT.test(nq) && !MEETING_EXCLUDES.test(nq);
+const isMeetingIntent = (nq) => {
+  if (MEETING_BARE_ANCHOR.test(nq)) return true;
+  return MEETING_INTENT.test(nq) && !MEETING_EXCLUDES.test(nq);
+};
 
 const isArticleRelated = (nq) => {
   return /(article|blog|writing|writings|write|posts?|published|summariz|explain|what .*learned|lessons|price ?iq|cli|distributed systems|ai agents|mcp|terminal|portfolio as a terminal)/i.test(nq);

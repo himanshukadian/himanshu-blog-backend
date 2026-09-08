@@ -88,7 +88,18 @@ describe('routing tier: regression queries route to the right intent', () => {
     ['email address of himanshu', 'contact'],
     ['setuppppppp meeeetinggggg', 'meeting'],
     ['all your writing', 'writing-list'],
-    ['summarize the AI agents article', null]
+    ['summarize the AI agents article', null],
+    ['invite', 'meeting'],
+    ['connect', 'meeting'],
+    ['collaborate', 'meeting'],
+    ['collaboration', 'meeting'],
+    ['touch base', 'meeting'],
+    ['can we connect', 'meeting'],
+    ['want to collaborate', 'meeting'],
+    ['sending you an invite', 'meeting'],
+    ['invite me to your github', 'contact'],
+    ['connect with himanshu on linkedin', 'contact'],
+    ['open to collab', 'meeting']
   ];
 
   test.each(cases)('%s -> %s', (query, intent) => {
