@@ -132,18 +132,19 @@ class AIController {
     if (!hasUsableHistory(chatHistory) || !this.apiKey) return raw;
     try {
       const rewriteMsgs = buildRewritePrompt(raw, chatHistory);
-      const rewriteModel = this.modelChain[1] || this.modelName;
+      const rewriteStartModel = this.modelName;
       const t0 = Date.now();
-      const { response } = await this.callAI(rewriteMsgs, rewriteModel, false, { temperature: 0 });
+      const { response, model } = await this.callAIWithChain(rewriteMsgs, rewriteStartModel, false, { temperature: 0 });
       const rewritten = String(response.data.choices?.[0]?.message?.content || '').trim();
       const ms = Date.now() - t0;
       if (rewritten && rewritten !== raw && rewritten.length > 2) {
-        console.log(`[halo] cqr query="${raw.slice(0, 100)}" rewritten="${rewritten.slice(0, 100)}" model=${rewriteModel} ms=${ms}`);
+        console.log(`[halo] cqr query="${raw.slice(0, 100)}" rewritten="${rewritten.slice(0, 100)}" model=${model} ms=${ms}`);
         return rewritten;
       }
       return raw;
     } catch (e) {
-      console.log(`[halo] cqr skipped query="${raw.slice(0, 100)}" err=${e.code || e.message || 'rewrite-failed'}`);
+      const status = e.response ? e.response.status : 0;
+      console.log(`[halo] cqr skipped query="${raw.slice(0, 100)}" err=${e.code || e.message || 'rewrite-failed'}${status ? ` status=${status}` : ''}`);
       return raw;
     }
   };
@@ -185,7 +186,7 @@ class AIController {
   // Iterates the whole model chain (rotating start point) so each model gets
   // its own quota window, with exponential backoff + jitter on 429/5xx and
   // no retry wasted on permanent 400/403/404.
-  callAIWithChain = async (messages, model, stream) => {
+  callAIWithChain = async (messages, model, stream, options) => {
     const startIdx = Math.max(0, this.modelChain.indexOf(model));
     const ordered = this.modelChain.slice(startIdx).concat(this.modelChain.slice(0, startIdx));
     let lastError = null;
@@ -200,7 +201,7 @@ class AIController {
       while (attempt < maxAttempts) {
         attempt += 1;
         try {
-          const response = await this.callAI(messages, candidate, stream);
+          const response = await this.callAI(messages, candidate, stream, options);
           this.cooldowns[candidate] = 0;
           return { response, model: candidate };
         } catch (e) {
