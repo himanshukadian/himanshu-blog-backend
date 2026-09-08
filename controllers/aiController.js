@@ -63,10 +63,10 @@ class AIController {
     const messages = [{ role: 'system', content: SYSTEM_PROMPT + '\n\n' + GROUNDING_RULES }];
     const sanitizedHistory = (Array.isArray(chatHistory) ? chatHistory : [])
       .map(m => ({
-        type: m.type,
-        content: String(m.content || '').trim()
+        type: m && (m.type || m.role),
+        content: String((m && m.content) || '').trim()
       }))
-      .filter(m => (m.type === 'user' || m.type === 'assistant') && m.content)
+      .filter(m => (m.type === 'user' || m.type === 'assistant' || m.type === 'system') && m.content)
       .map(m => ({ type: m.type, content: m.content.slice(0, 4000).trim() }))
       .filter(m => m.content)
       .slice(-10);
@@ -77,9 +77,15 @@ class AIController {
       sanitizedHistory.pop();
     }
 
+    const clientSystem = [];
     sanitizedHistory.forEach(m => {
-      messages.push({ role: m.type, content: m.content });
+      if (m.type === 'system') {
+        clientSystem.push({ role: 'system', content: m.content });
+      } else {
+        messages.push({ role: m.type, content: m.content });
+      }
     });
+    clientSystem.forEach(s => messages.splice(1, 0, s));
 
     return messages;
   };

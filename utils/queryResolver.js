@@ -24,11 +24,27 @@
 //       1. hasUsableHistory()   — the ONLY gate (history exists?).
 //       2. buildRewritePrompt() — the condense prompt for the lite model.
 
+// History entries arrive either OpenAI-style ({role:'user'|'assistant'|'system'})
+// or legacy ({type: ...}). Normalize so both work — this was the root cause of
+// the terminal silently dropping all context.
+function speakerOf(m) {
+  if (!m) return null;
+  const t = m.type || m.role;
+  if (t === 'user' || t === 'assistant') return t;
+  return null;
+}
+
+function summaryOf(m) {
+  if (!m) return null;
+  const t = m.type || m.role;
+  const c = String(m.content || '').trim();
+  return t === 'system' && c ? c : null;
+}
+
 // The only gate for the LLM CQR rewrite: is there real conversation history?
 function hasUsableHistory(chatHistory) {
   return Array.isArray(chatHistory) && chatHistory.some(
-    (m) => m && (m.type === 'user' || m.type === 'assistant') &&
-      String(m.content || '').trim().length > 1
+    (m) => speakerOf(m) && String(m.content || '').trim().length > 1
   );
 }
 
@@ -40,9 +56,13 @@ function hasUsableHistory(chatHistory) {
 function buildRewritePrompt(query, chatHistory) {
   const entries = Array.isArray(chatHistory) ? chatHistory : [];
   const sanitized = entries
-    .filter((m) => m && (m.type === 'user' || m.type === 'assistant'))
-    .map((m) => `${m.type === 'user' ? 'User' : 'Assistant'}: ${String(m.content || '').trim()}`)
-    .filter((l) => l.length > 4)
+    .map((m) => {
+      const speaker = speakerOf(m);
+      if (speaker) return `${speaker === 'user' ? 'User' : 'Assistant'}: ${String(m.content || '').trim()}`;
+      const summary = summaryOf(m);
+      return summary ? `Summary of earlier conversation: ${summary}` : null;
+    })
+    .filter((l) => l && l.length > 4)
     .slice(-6);
 
   const prompt = [
