@@ -37,29 +37,27 @@ class ResumeController {
         location: 'New Delhi',
         email: 'himanshu.c.official@gmail.com',
         phone: '+91-9761744048',
-        linkedin: 'https://www.linkedin.com/in/himanshucofficial',
-        github: 'https://github.com/himanshukadian',
-        portfolio: 'https://portfolio.buildwithhimanshu.com',
-        summary: 'Backend Software Engineer with 4+ years of experience building scalable, distributed, and high-performance backend systems for large-scale consumer platforms. Strong background in microservices architecture, REST APIs, cloud-native development, system design, and data pipelines. Proven success in reducing operational costs, improving onboarding time, and automating business workflows. Proficient in Python, Java, SQL, AWS, Kafka, DynamoDB, Docker, Kubernetes, and Generative AI solutions based on Large Language Models.',
+        linkedin: 'linkedin.com/in/himanshuofficial',
+        github: 'github.com/himanshukadian',
+        portfolio: 'portfolio.buildwithhimanshu.com',
+        summary: 'Backend Software Engineer with 5+ years of experience building scalable, distributed, and high-performance backend systems for large-scale consumer platforms. Strong background in microservices architecture, REST APIs, cloud-native development, system design, and data pipelines. Proven success in reducing operational costs, improving onboarding time, and automating business workflows. Proficient in Python, Java, SQL, AWS, Kafka, DynamoDB, Docker, Kubernetes, and Generative AI solutions based on Large Language Models.',
         skills: {
           languages: ['Python', 'Java', 'C++', 'JavaScript', 'SQL'],
           technologies: ['Spring Boot', 'Django', 'Flask', 'Docker', 'Kubernetes', 'Microservices', 'System Design', 'REST APIs', 'Distributed Systems', 'Data Pipelines', 'Observability', 'Performance Optimization', 'Security', 'Generative AI', 'Large Language Models'],
-          developerTools: ['VS Code', 'IntelliJ', 'AWS', 'Kafka', 'DynamoDB', 'Lambda', 'Cloud Functions'],
-          databases: ['DynamoDB', 'MySQL', 'PostgreSQL'],
-          others: ['Automation', 'Building Tools']
+          developerTools: ['VS Code', 'IntelliJ', 'AWS', 'Kafka', 'DynamoDB', 'Lambda', 'Cloud Functions']
         },
         experience: [
           {
             company: 'Wayfair',
             role: 'Software Engineer II',
             location: 'Bangalore, Karnataka',
-            duration: 'April 2023 - Present',
+            duration: 'April 2023 – Present',
             highlights: [
-              'Implemented a Lane Management System optimizing routing decisions across 50-70 operational, cost, and performance parameters, reducing fulfillment costs by 20% and improving delivery SLA adherence by 15%.',
+              'Implemented a Lane Management System optimizing routing decisions across 50–70 operational, cost, and performance parameters, reducing fulfillment costs by 20% and improving delivery SLA adherence by 15%.',
               'Developed an AI-powered analytics assistant that converts natural language queries into optimized SQL, increasing self-service analytics usage and reducing ad-hoc data request turnaround time by 30%.',
               'Built a high-throughput monitoring and insights platform processing 50,000+ events per minute with distributed microservices, enabling real-time observability and cutting incident triage time from hours to minutes.',
               'Modernized the label printing platform to support 100 labels per second with low latency and high availability, and introduced automated unit, integration, and end-to-end testing pipelines, improving release stability.',
-              'Created a unified label printing API to standardize integrations across multiple clients, reducing onboarding time from 1-2 months to 3 weeks, and enforcing secure PII data handling with access control and compliance practices.',
+              'Created a unified label printing API to standardize integrations across multiple clients, reducing onboarding time from 1–2 months to 3 weeks, and enforcing secure PII data handling with access control and compliance practices.',
               'Designed and scaled a multi-tenant, cloud-based AI workflow orchestration platform, transforming a local single-user tool into a distributed backend system with asynchronous execution, real-time observability, and context-aware orchestration, significantly improving developer productivity and enabling reliable automation for bug analysis, test generation, and code intelligence.'
             ]
           },
@@ -67,7 +65,7 @@ class ResumeController {
             company: 'Amazon',
             role: 'SDE 1',
             location: 'Bangalore, Karnataka',
-            duration: 'July 2022 - March 2023',
+            duration: 'July 2022 – March 2023',
             highlights: [
               'Built an automated customer migration pipeline to transition 1M+ users between marketplaces with high data consistency and zero manual intervention.',
               'Migrated core backend services from a legacy architecture to a modern scalable design, lowering infrastructure and maintenance costs by 50% while improving system reliability and performance.',
@@ -76,10 +74,10 @@ class ResumeController {
             ]
           },
           {
-            company: 'Mobeology Communications',
+            company: 'Mobelogy Communications',
             role: 'Software Engineer',
             location: 'Faridabad, Haryana',
-            duration: 'January 2021 - June 2022',
+            duration: 'January 2021 – June 2022',
             highlights: [
               'Developed scalable backend profiling and campaign management services using microservices architecture, driving analytics pipelines for data ingestion, aggregation, and KPI computation, and improving system scalability, data consistency, and reporting accuracy for publisher and campaign operations.',
               'Built scalable backend systems and integrated frontend analytics dashboards to track CAC, LTV, campaign spend, and optimization metrics on a single unified platform, enabling data-driven decision-making and operational cost optimization.'
@@ -372,6 +370,26 @@ class ResumeController {
     } catch (error) {
       console.error('Get resume error:', error);
       next(new AppError('Failed to fetch resume', 500));
+    }
+  };
+
+  deleteResume = async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      const resume = await Resume.findByIdAndDelete(id);
+
+      if (!resume) {
+        return next(new AppError('Resume not found', 404));
+      }
+
+      res.status(200).json({
+        status: 'success',
+        data: { resumeId: id }
+      });
+    } catch (error) {
+      console.error('Delete resume error:', error);
+      next(new AppError('Failed to delete resume', 500));
     }
   };
 

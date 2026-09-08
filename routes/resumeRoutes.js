@@ -23,6 +23,7 @@ router.post('/generate-pdf/:resumeId', resumeController.generateCustomizedPDF);
 // Resume management routes
 router.get('/', resumeController.getResumes);
 router.get('/:id', resumeController.getResumeById);
+router.delete('/:id', resumeController.deleteResume);
 
 // Optional: Protected routes for admin management (if auth is needed later)
 // router.use(protect); // Uncomment if authentication is required
