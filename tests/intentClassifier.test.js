@@ -107,3 +107,32 @@ describe('routing tier: regression queries route to the right intent', () => {
     expect(r ? r.intent : null).toBe(intent);
   });
 });
+
+describe('cosine supplement tier: paraphrases Damerau misses route to meeting', () => {
+  const cases = ['when would be a good time to connect', 'how about we meet up'];
+
+  test.each(cases)('%s -> meeting (cosine)', (query) => {
+    const r = routeIntent(query);
+    expect(r).toMatchObject({ intent: 'meeting', tier: 'cosine' });
+    expect(r.score).toBeGreaterThanOrEqual(0.3);
+  });
+});
+
+describe('cosine supplement tier: must NOT create false positives', () => {
+  const cases = [
+    'summarize the AI agents article',
+    'invite me to your github',
+    'connect with himanshu on linkedin',
+    'list 4 main points about this project',
+    'what did you learn building priceiq',
+    'discuss the mcp article',
+    'explain the distributed system article',
+    'tell me about the cli terminal',
+    'what articles did you write about distributed systems'
+  ];
+
+  test.each(cases)('%s -> NOT meeting (no false positive)', (query) => {
+    const r = routeIntent(query);
+    if (r) expect(r.intent).not.toBe('meeting');
+  });
+});

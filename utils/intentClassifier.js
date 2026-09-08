@@ -54,7 +54,12 @@ const SEEDS = {
     "let's collaborate", 'want to collaborate', 'would love to collaborate',
     'can we collaborate', 'looking to collaborate', 'open to collaborate',
     'open to collab', 'interested in collaborating', 'touch base', 'sending you an invite',
-    'can you send me an invite'
+    'can you send me an invite', 'when is a good time to talk',
+    'when is a good time to call', 'are you free for a chat',
+    'lets find a window', 'lets sync up', 'get on your calendar',
+    'find a time to meet', 'what does your calendar look like',
+    'hop on a quick call', 'when are we free to sync', 'lets align on a time',
+    'lets do a quick sync', 'lets get a call scheduled', 'sync up'
   ],
   contact: [
     'email address', 'your email', 'his email', 'contact details', 'contact info',
@@ -191,8 +196,32 @@ const isArticleRelated = (nq) => {
 const FUZZY_MEETING_GUARD =
   /(article|blog|writing|explain|summar|resume|job|price ?iq|cli|distributed|terminal|read)/i;
 
+// --- Cosine supplement (intentmap-style, hand-rolled, zero deps) ------------
+// Runs ONLY when regex (sole authority) and Damerau fuzzy (typo layer) both
+// return nothing. Adds lexical recall for non-typo paraphrases. Meeting-only,
+// behind FUZZY_MEETING_GUARD, threshold + margin gated so it can never turn a
+// topically-similar-but-intentionally-different query into a false positive.
+const { buildDictionary, scoreQuery } = require('./intentCosine');
+
+const COSINE_DICT = buildDictionary(SEEDS);
+const COSINE_ACCEPT = 0.3;
+const COSINE_MARGIN = 0.15;
+
+const classifyCosine = (nq) => {
+  if (FUZZY_MEETING_GUARD.test(nq)) return null;
+  const scores = scoreQuery(COSINE_DICT, nq);
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const best = sorted[0];
+  const second = sorted[1];
+  if (!best || best[1] < COSINE_ACCEPT) return null;
+  if (best[1] - second[1] < COSINE_MARGIN) return null;
+  if (best[0] !== 'meeting') return null;
+  return { intent: 'meeting', score: best[1], tier: 'cosine', scores };
+};
+
 // Full routing: exact regex tier first (single uncontested hit wins),
-// then fuzzy tier (meeting only), else null so the caller falls back to LLM.
+// then fuzzy tier (meeting only), then cosine supplement (meeting only),
+// else null so the caller falls back to LLM.
 const routeIntent = (query) => {
   const nq = normalizeQuery(query);
   if (!nq) return null;
@@ -211,13 +240,14 @@ const routeIntent = (query) => {
     return { intent: 'meeting', tier: 'fuzzy', score: fuzzy.score };
   }
 
-  return null;
+  return classifyCosine(nq);
 };
 
 module.exports = {
   normalizeQuery,
   classifyIntent,
   routeIntent,
+  classifyCosine,
   isMeetingIntent,
   isContactIntent,
   isProjectsListIntent,
@@ -225,5 +255,6 @@ module.exports = {
   isArticleRelated,
   damerauLevenshtein,
   similarity,
-  bestMatch
+  bestMatch,
+  SEEDS
 };
