@@ -64,6 +64,12 @@ class AIController {
     return writingSources.map(s => ({ title: s.title, slug: s.slug, url: s.url, snippet: s.snippet }));
   };
 
+  keepRelevant = (writingSources) => {
+    const MIN_SCORE = 30;
+    if (!Array.isArray(writingSources)) return [];
+    return writingSources.filter((s) => (typeof s.score === 'number' ? s.score : 0) >= MIN_SCORE);
+  };
+
   callMistral = async (messages, model, stream) => {
     const response = await axios.post(this.apiEndpoint, {
       model,
@@ -170,7 +176,7 @@ class AIController {
 
       let writingSources = [];
       try {
-        writingSources = await rag.retrieve(query, 4);
+        writingSources = this.keepRelevant(await rag.retrieve(query, 4));
       } catch (e) {
         writingSources = [];
       }
@@ -344,7 +350,7 @@ class AIController {
 
       writingSources = [];
       try {
-        writingSources = await rag.retrieve(query, 4);
+        writingSources = this.keepRelevant(await rag.retrieve(query, 4));
       } catch (e) {
         writingSources = [];
       }
