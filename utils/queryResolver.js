@@ -9,25 +9,47 @@
 // retrieval and the answer LLM, otherwise retrieval sees ~empty tokens and
 // the generation model guesses the wrong referent.
 //
-// Two layers:
-//   1. resolveQuery()        — deterministic, zero-cost fast path for
-//                              marker/hollow queries (token substitution).
-//   2. isContextDependent()  — cheap gate that fires a train-free LLM rewrite
-//                              only for queries deterministic logic cannot
-//                              resolve (pure ellipsis / formatting follow-ups).
+// Design notes (research-backed replacement for the earlier keyword-gate):
+//   KRD / Ideaplan "Rule sprawl", AutoSpec, and the LLM rule-evaluation
+//   literature (arXiv 2607.23386; Mirzadeh et al. 2024) show that hand-tuned
+//   detectors for "what counts as context-dependent" fail in the long tail:
+//   every new edge case ("in two points", "in 3 bullets") required a new
+//   keyword. The permanent fix (per LlamaIndex CondenseQuestionChatEngine /
+//   CondensePlusContextChatEngine, LangChain condense_question, AdaptiveRecall)
+//   is to skip the heuristic gate entirely and run ONE cheap LLM condense pass
+//   on EVERY turn that has history. This module keeps only:
+//     1. resolveQuery()       — deterministic fast path (marker/hollow token
+//                               substitution). Fires ONLY for unambiguous
+//                               pronoun referents ("it", "that", "those");
+//                               determiner usage ("this project") never fires.
+//     2. hasUsableHistory()   — the ONLY gate for the LLM rewrite: history
+//                               exists (and the deterministic path failed).
+//     3. buildRewritePrompt() — the LLM rewrite prompt ("return verbatim if
+//                               already self-contained").
 
 const { tokenize } = require('./articleRag');
 
 const REF_MARKERS = /\b(it|its|this|that|these|those|them|they|there)\b/i;
 
-const FORMAT_ONLY = new Set([
-  'bullet', 'bullets', 'point', 'points', 'more', 'detail', 'details',
-  'summary', 'summarize', 'summaries', 'expand', 'elaborate', 'concise',
-  'short', 'shorter', 'simplify', 'simplified', 'reword', 'rephrase',
-  'format', 'formatting', 'list', 'give', 'show', 'tell', 'say', 'write',
-  'explain', 'describe', 'one', 'ones', 'like', 'same', 'similar', 'those',
-  'me', 'us', 'thing', 'things', 'stuff'
-]);
+const DETERMINER_RE = /\b(?:this|that|these|those|its)\s+[a-z][a-z0-9'-]*\b/gi;
+
+// True when the query uses a marker as a PRONOUN (standalone referent:
+// "is there article on it", "expand on that"). Determiner usage ("this
+// project", "that article") is self-contained and must NOT trigger a rewrite.
+function usesPronounMarker(raw) {
+  if (!REF_MARKERS.test(raw)) return false;
+  const withoutDeterminers = raw.replace(DETERMINER_RE, ' ');
+  return REF_MARKERS.test(withoutDeterminers);
+}
+
+// The only gate for the LLM CQR rewrite: is there real conversation history?
+// (This is what the reference implementations use — no content-based gate.)
+function hasUsableHistory(chatHistory) {
+  return Array.isArray(chatHistory) && chatHistory.some(
+    (m) => m && (m.type === 'user' || m.type === 'assistant') &&
+      String(m.content || '').trim().length > 1
+  );
+}
 
 // Extract the most salient topical tokens, preferring the LAST USER turn
 // (CQR last-user-priority): find the most recent user utterance that carries
@@ -78,16 +100,18 @@ function extractTopicTokens(_query, chatHistory) {
 }
 
 // Resolve an anaphoric/elliptical follow-up into a self-contained query.
-// Returns null when the query is already self-contained (nothing to resolve).
+// Returns null when the query is already self-contained (nothing to resolve),
+// or when no prior topic can be found. Fires ONLY on unambiguous PRONOUN
+// referents — determiner usage ("list 4 main points about this project") is
+// self-contained and returns null (the LLM condense step then preserves it).
 function resolveQuery(query, chatHistory) {
   const raw = String(query || '').trim();
   if (!raw) return null;
 
   const contentTokens = tokenize(raw);
-  const hasMarker = REF_MARKERS.test(raw);
-  const isHollow = contentTokens.length < 2 && hasMarker;
+  if (!usesPronounMarker(raw)) return null;
 
-  if (!isHollow && !hasMarker) return null;
+  const isHollow = contentTokens.length < 2;
 
   const topic = extractTopicTokens(raw, chatHistory);
   if (!topic.length) return null;
@@ -97,38 +121,12 @@ function resolveQuery(query, chatHistory) {
   if (isHollow) {
     // Ellipsis / bare-marker follow-up: substitute prior topic entirely.
     // e.g. "is there article on it" -> "is there article on <topic>"
-    const withoutMarkers = raw.replace(REF_MARKERS, ' ');
+    const withoutMarkers = raw.replace(DETERMINER_RE, ' ').replace(REF_MARKERS, ' ');
     return `${withoutMarkers.trim()} ${topicStr}`.trim();
   }
 
   // Marker + other content: insert the antecedent after the marker (CRDR add).
-  return raw.replace(REF_MARKERS, ` ${topicStr}`);
-}
-
-// Cheap gate: is THIS query context-dependent (needs CQR rewrite)?
-// True when the query is (a) hollow (≤1 content token), or (b) composed only
-// of formatting/continuation words ("in bullet points", "more details",
-// "expand", "like those") with no topical content of its own, or (c) carries
-// a reference marker. Entirely self-contained queries ("what is priceiq",
-// "summarize the AI agents article") are never flagged.
-function isContextDependent(query, chatHistory) {
-  const raw = String(query || '').trim();
-  if (!raw) return false;
-
-  const hasHistory = Array.isArray(chatHistory) && chatHistory.some(
-    (m) => m && (m.type === 'user' || m.type === 'assistant') &&
-      String(m.content || '').trim().length > 1
-  );
-  if (!hasHistory) return false;
-
-  if (REF_MARKERS.test(raw)) return true;
-
-  const tokens = tokenize(raw);
-  if (tokens.length <= 1) return true;
-
-  const meaningful = tokens.filter((t) => !FORMAT_ONLY.has(t));
-  // If nothing substantive survives beyond format words -> ellipsis follow-up.
-  return meaningful.length === 0;
+  return raw.replace(DETERMINER_RE, ' ').replace(REF_MARKERS, ` ${topicStr}`);
 }
 
 // Build the LLM messages for train-free CQR rewriting (LLM4CS-style).
@@ -167,4 +165,4 @@ function buildRewritePrompt(query, chatHistory) {
   ];
 }
 
-module.exports = { resolveQuery, extractTopicTokens, isContextDependent, buildRewritePrompt, REF_MARKERS };
+module.exports = { resolveQuery, extractTopicTokens, hasUsableHistory, buildRewritePrompt, REF_MARKERS };

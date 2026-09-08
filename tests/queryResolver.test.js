@@ -1,4 +1,4 @@
-const { resolveQuery, isContextDependent } = require('../utils/queryResolver');
+const { resolveQuery, hasUsableHistory } = require('../utils/queryResolver');
 
 describe('queryResolver: anaphoric follow-ups resolve against prior topic', () => {
   const history = [
@@ -41,6 +41,12 @@ describe('queryResolver: self-contained queries are untouched', () => {
     expect(resolveQuery('show me all ur projects', history)).toBeNull();
   });
 
+  test('determiner usage ("this project", "that article") -> null (self-contained)', () => {
+    expect(resolveQuery('list 4 main points about this project', history)).toBeNull();
+    expect(resolveQuery('expand on that article', history)).toBeNull();
+    expect(resolveQuery('summarize this article about mcp', history)).toBeNull();
+  });
+
   test('no history -> null (cannot resolve)', () => {
     expect(resolveQuery('is there article on it', [])).toBeNull();
   });
@@ -53,37 +59,20 @@ describe('queryResolver: self-contained queries are untouched', () => {
   });
 });
 
-describe('queryResolver: isContextDependent flags ellipsis for LLM CQR rewrite', () => {
-  const history = [
-    { type: 'user', content: 'his projects' },
-    { type: 'assistant', content: 'Key projects: AI-powered analytics assistant, Lane Management System, high-throughput monitoring platform.' }
-  ];
-
-  test.each([
-    'in bullet points',
-    'more details',
-    'expand',
-    'tell me more',
-    'give me bullet points on that',
-    'is there article on it',
-    'in short',
-    'summarize'
-  ])('%s -> context-dependent', (q) => {
-    expect(isContextDependent(q, history)).toBe(true);
+describe('queryResolver: hasUsableHistory is the only LLM-rewrite gate', () => {
+  test('empty / null / irrelevant history -> false', () => {
+    expect(hasUsableHistory([])).toBe(false);
+    expect(hasUsableHistory(null)).toBe(false);
+    expect(hasUsableHistory(undefined)).toBe(false);
+    expect(hasUsableHistory('not-an-array')).toBe(false);
   });
 
-  test.each([
-    'what is priceiq',
-    'summarize the AI agents article',
-    'his projects',
-    'show me all your projects',
-    'invite',
-    'email address of himanshu'
-  ])('%s -> self-contained', (q) => {
-    expect(isContextDependent(q, history)).toBe(false);
+  test('history with a real user or assistant turn -> true', () => {
+    expect(hasUsableHistory([{ type: 'user', content: 'hello' }])).toBe(true);
+    expect(hasUsableHistory([{ type: 'assistant', content: 'Hi there!' }])).toBe(true);
   });
 
-  test('no history -> never context-dependent', () => {
-    expect(isContextDependent('in bullet points', [])).toBe(false);
+  test('whitespace-only turns are ignored', () => {
+    expect(hasUsableHistory([{ type: 'user', content: '   ' }])).toBe(false);
   });
 });
