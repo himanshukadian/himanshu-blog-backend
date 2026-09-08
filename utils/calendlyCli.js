@@ -73,6 +73,20 @@ async function resolveEventType() {
   return { configured: true, eventType, reason: eventType ? null : 'No active event types found' };
 }
 
+// Calendly requires the availability window start_time to be strictly in the future and
+// aligned to the slot grid (30-min). Otherwise it returns VALIDATION_ERROR / empty.
+function alignFuture(date) {
+  const aligned = new Date(date);
+  aligned.setUTCSeconds(0, 0);
+  if (aligned.getUTCMinutes() % 30 !== 0) {
+    aligned.setUTCMinutes(aligned.getUTCMinutes() + (30 - (aligned.getUTCMinutes() % 30)));
+  }
+  if (aligned.getTime() <= Date.now() + 1000) {
+    aligned.setUTCMinutes(aligned.getUTCMinutes() + 30);
+  }
+  return aligned;
+}
+
 // Resolve the event type and return real open slots formatted for the UI (max 7-day windows)
 async function getEventTimesByDuration(days = 14) {
   if (!IS_CONFIGURED) return { configured: false, slots: [] };
@@ -81,7 +95,7 @@ async function getEventTimesByDuration(days = 14) {
   if (!resolved.eventType) return { configured: true, slots: [], error: resolved.reason || 'No event type resolved' };
 
   const windows = [];
-  const now = new Date();
+  const now = alignFuture(new Date());
   const capped = Math.min(days, 21); // max ~3 windows of 7 days
   for (let i = 0; i < capped; i += 7) {
     const start = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
@@ -91,7 +105,10 @@ async function getEventTimesByDuration(days = 14) {
 
   const slots = [];
   for (const window of windows) {
-    const result = await getEventTimes(resolved.eventType.uri, window);
+    let result = await getEventTimes(resolved.eventType.uri, window);
+    if ((!result.slots || !result.slots.length) && result.error) {
+      result = await getEventTimes(resolved.eventType.uri, { ...window, startTime: alignFuture(new Date(now.getTime() + 30 * 60 * 1000)).toISOString() });
+    }
     if (result.slots && result.slots.length) slots.push(...result.slots);
     if (slots.length >= 20) break;
   }
@@ -126,8 +143,8 @@ async function getEventTimes(eventTypeUri, { startTime, endTime, timezone = 'Asi
   if (!eventTypeUri) return { configured: true, slots: [], error: 'No event type URI' };
 
   const now = new Date();
-  const start = startTime || now.toISOString();
-  const end = endTime || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days max
+  const start = startTime || alignFuture(now).toISOString();
+  const end = endTime || new Date(new Date(start).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days max
 
   const args = [
     CALENDLY_BIN,
