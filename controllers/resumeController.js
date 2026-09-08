@@ -970,13 +970,13 @@ Return format: ["keyword1", "keyword2", "keyword3"]`;
       });
       
       const pdfBuffer = await page.pdf({
-        format: 'A4',
+        format: 'Letter',
         printBackground: true,
         margin: {
-          top: '0.5in',
-          right: '0.5in',
-          bottom: '0.5in',
-          left: '0.5in'
+          top: '0',
+          right: '0',
+          bottom: '0',
+          left: '0'
         },
         timeout: 30000
       });
