@@ -156,7 +156,7 @@ const isWritingSearchIntent = (nq) => {
   return matched && !WRITING_SEARCH_EXCLUDES.test(nq) && WRITING_SEARCH_TOPIC_GATE.test(nq);
 };
 
-const CONTACT_PATTERNS = /(email|e-?mail|contact|@|phone|number|linkedin|github|social|get in touch|reach (out |you )?|details|how (to|do|can) i (reach|contact|email|message)|message (him|himanshu))/i;
+const CONTACT_PATTERNS = /(email|e-?mail|contact|@|phone|number|linkedin|github|social|get in touch|reach (out |you )?|(contact|reach|your|his|her|their)\s+details?|how (to|do|can) i (reach|contact|email|message)|message (him|himanshu))/i;
 
 const CONTACT_EXCLUDES = /(article|blog|resume|job|role|explain|summar|writing)/i;
 

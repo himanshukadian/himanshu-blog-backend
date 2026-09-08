@@ -170,3 +170,19 @@ describe('writing-search intent: digest/list/out-of-scope must NOT match', () =>
     expect(r ? r.intent : null).toBe(intent);
   });
 });
+
+describe('contact intent: bare "details" must NOT match (false positive)', () => {
+  const cases = [
+    ['more details', null],
+    ['in bullet points', null],
+    ['tell me more', null],
+    ['expand', null],
+    ['his contact details', 'contact'],
+    ['email address of himanshu', 'contact']
+  ];
+
+  test.each(cases)('%s -> %s', (query, intent) => {
+    const r = routeIntent(query);
+    expect(r ? r.intent : null).toBe(intent);
+  });
+});
