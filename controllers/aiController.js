@@ -2,13 +2,14 @@ const AppError = require('../utils/appError');
 const Article = require('../models/Article');
 const axios = require('axios');
 const rag = require('../utils/articleRag');
+const { normalizeQuery, classifyIntent } = require('../utils/intentClassifier');
 
 const SYSTEM_PROMPT = "You are Himanshu Chaudhary's AI chat assistant on his portfolio website. Be conversational, helpful, and natural. You help visitors learn about Himanshu, schedule meetings, and provide AI-powered resume customization services.\n\n**Your Capabilities:**\n1. **Portfolio Information** - Answer questions about Himanshu's experience, skills, projects, education\n2. **Resume Customization** - When users provide job descriptions, help them customize resumes (don't output full resumes unless they paste a job description)\n3. **Meeting Scheduling** - Help coordinate meetings and discussions\n4. **Writing/Articles** - Answer questions about Himanshu's blog articles using the retrieved writing context and link to the articles you reference\n\n**About Himanshu:**\n- Software Engineer II at Wayfair (Apr 2023–Present)\n- 4+ years of experience building scalable, distributed backend systems\n- Strong background in microservices architecture, REST APIs, cloud-native development, system design, and data pipelines\n- Previously: Amazon (SDE 1), Mobeology Communications\n- Education: MCA from NIT Warangal (Class Topper), B.Sc CS from University of Delhi\n- Key Projects: AI-powered analytics assistant, Lane Management System, high-throughput monitoring platform\n- Skills: Python, Java, JavaScript, SQL, AWS, Kafka, DynamoDB, Docker, Kubernetes, Generative AI, Large Language Models\n- Contact: himanshu.c.official@gmail.com, https://www.linkedin.com/in/himanshucofficial, https://github.com/himanshukadian, https://portfolio.buildwithhimanshu.com\n- Timezone: IST (Asia/Kolkata). Booking: https://calendly.com/himanshu-c-official/30min\n\n**Meeting Scheduling Rules:**\n- NEVER invent specific free times, weekday availability patterns, or typical hours. If you are given his real open slots, recommend ONLY those exact times.\n- To book, ALWAYS share this exact link: https://calendly.com/himanshu-c-official/30min\n- He is in IST; convert times to the user's zone when they mention it, but keep the same slot.\n\n**Response Style:**\n- Be conversational and friendly (use emojis appropriately)\n- Keep responses focused and under 300 words\n- For resume questions without job descriptions, explain the AI customization service\n- For meeting requests, be enthusiastic about connecting\n- For portfolio questions, provide relevant details naturally\n- Don't output full resume templates unless user provides a job description to customize for";
 
 const CONTEXT_HEADER = "**Relevant writing from Himanshu's blog (use this as context when the question is about his articles/blog/writing):**";
 
 const MEETING_INTENT =
-  /(?:let'?s?\s+(?:set\s+up|meet|talk|connect|chat)|(?:set\s+up|schedule|book|reserve|arrange)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|availab|avail|slot|slots|calendly|timezone|when\s+(?:are|is)\s+(?:you|he)\s+free|free\s+time|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot))/i;
+  /(?:let'?s?\s+(?:set\s*up|setup|meet|talk|connect|chat)|(?:set\s*up|setup|schedule|book|reserve|arrange|plan)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|wanna\s+(?:have\s+a\s+)?(?:talk|call|meeting)|let'?s?\s+catch\s+up|get\s+on\s+a\s+call|lock\s+in\s+a\s+slot|find\s+a\s+time|availab|avail|slot|slots|calendly|timezone|when\s+(?:are|is)\s+(?:you|he)\s+free|free\s+time|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot))/i;
 
 const MEETING_EXCLUDES =
   /(?:articles?|blog|writing|learned|explain|summar|price\s?iq|cli|agent|distributed|post|read|what did|how did|why did)/i;
@@ -289,11 +290,12 @@ class AIController {
         return next(new AppError('Query is too long (max 4000 characters)', 400));
       }
       const chatHistory = req.body.chatHistory;
+      const nq = normalizeQuery(query);
 
       const listIntent = (
-        ((/(^|\b)(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blogs?|articles?|writing|writings|posts?)\b/i.test(query)) ||
-         (/^(what have you written|your blog posts|blog posts|all your writing|blogs you've written)$/i.test(query))) &&
-        !/(explain|summar|tell me about|what is |what's |how |why |read|viewed|understood)/i.test(query)
+        ((/(^|\b)(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blogs?|articles?|writing|writings|posts?)\b/i.test(nq)) ||
+         (/^(what have you written|your blog posts|blog posts|all your writing|blogs you've written)$/i.test(nq))) &&
+        !/(explain|summar|tell me about|what is |what's |how |why |read|viewed|understood)/i.test(nq)
       );
 
       if (listIntent) {
@@ -343,7 +345,7 @@ class AIController {
         });
       }
 
-      if (isContactIntent(query)) {
+      if (isContactIntent(nq)) {
         const response = this.buildContactResponse();
         console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
         return res.status(200).json({
@@ -352,13 +354,20 @@ class AIController {
         });
       }
 
-      if (isProjectsListIntent(query)) {
+      if (isProjectsListIntent(nq)) {
         const response = this.buildProjectsResponse();
         console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
         return res.status(200).json({
           status: 'success',
           data: { response, model: 'facts', contextUsed: false, writingSources: [], retrievedCount: 0 }
         });
+      }
+
+      const fuzzy = classifyIntent(nq);
+      const fuzzyMeetingGuard = /(article|blog|writing|explain|summar|resume|job|price ?iq|cli|distributed|terminal|read)/i.test(nq);
+      const fuzzyMeeting = fuzzy && fuzzy.intent === 'meeting' && !fuzzyMeetingGuard;
+      if (fuzzyMeeting) {
+        console.log(`[halo] query="${query.slice(0, 120)}" sources=0 model=meeting-fuzzy score=${fuzzy.score.toFixed(2)} ms=${Date.now() - start} err=none`);
       }
 
       if (!this.apiKey) {
@@ -370,7 +379,7 @@ class AIController {
       const messages = this.buildMessages(query, chatHistory);
 
       let writingSources = [];
-      const meetingIntent = isMeetingIntent(query);
+      const meetingIntent = isMeetingIntent(nq) || Boolean(fuzzyMeeting);
       const shouldRetrieve = !meetingIntent && isArticleRelated(query);
       try {
         writingSources = shouldRetrieve
@@ -460,11 +469,12 @@ class AIController {
         return next(new AppError('Query is too long (max 4000 characters)', 400));
       }
       const chatHistory = req.body.chatHistory;
+      const nq = normalizeQuery(query);
 
       const listIntent = (
-        ((/(^|\b)(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blogs?|articles?|writing|writings|posts?)\b/i.test(query)) ||
-         (/^(what have you written|your blog posts|blog posts|all your writing|blogs you've written)$/i.test(query))) &&
-        !/(explain|summar|tell me about|what is |what's |how |why |read|viewed|understood)/i.test(query)
+        ((/(^|\b)(all|list|show|see|browse|view)\b[^?.]{0,50}\b(blogs?|articles?|writing|writings|posts?)\b/i.test(nq)) ||
+         (/^(what have you written|your blog posts|blog posts|all your writing|blogs you've written)$/i.test(nq))) &&
+        !/(explain|summar|tell me about|what is |what's |how |why |read|viewed|understood)/i.test(nq)
       );
 
       let writingSources = [];
@@ -525,7 +535,7 @@ class AIController {
         return;
       }
 
-      if (isContactIntent(query)) {
+      if (isContactIntent(nq)) {
         const response = this.buildContactResponse();
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -542,7 +552,7 @@ class AIController {
         return;
       }
 
-      if (isProjectsListIntent(query)) {
+      if (isProjectsListIntent(nq)) {
         const response = this.buildProjectsResponse();
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -557,6 +567,13 @@ class AIController {
         console.log(`[halo] stream query="${query.slice(0, 120)}" sources=0 model=facts ms=${Date.now() - start} err=none`);
         res.end();
         return;
+      }
+
+      const fuzzy = classifyIntent(nq);
+      const fuzzyMeetingGuard = /(article|blog|writing|explain|summar|resume|job|price ?iq|cli|distributed|terminal|read)/i.test(nq);
+      const fuzzyMeeting = fuzzy && fuzzy.intent === 'meeting' && !fuzzyMeetingGuard;
+      if (fuzzyMeeting) {
+        console.log(`[halo] stream query="${query.slice(0, 120)}" sources=0 model=meeting-fuzzy score=${fuzzy.score.toFixed(2)} ms=${Date.now() - start} err=none`);
       }
 
       if (!this.apiKey) {
@@ -575,7 +592,7 @@ class AIController {
       const messages = this.buildMessages(query, chatHistory);
 
       writingSources = [];
-      const meetingIntent = isMeetingIntent(query);
+      const meetingIntent = isMeetingIntent(nq) || Boolean(fuzzyMeeting);
       const shouldRetrieve = !meetingIntent && isArticleRelated(query);
       try {
         writingSources = shouldRetrieve
