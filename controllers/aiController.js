@@ -12,8 +12,8 @@ const GRACEFUL_RESPONSE = "⚠️ My AI service is temporarily unreachable — b
 class AIController {
   constructor() {
     this.apiEndpoint = 'https://api.mistral.ai/v1/chat/completions';
-    this.modelName = process.env.MISTRAL_MODEL || 'mistral-small-latest';
-    this.fallbackModel = 'open-mistral-7b';
+    this.modelName = process.env.MISTRAL_MODEL || 'ministral-14b-latest';
+    this.fallbackModel = 'ministral-8b-latest';
     this.apiKey = process.env.MISTRAL_API_KEY;
     this.axiosConfig = {
       timeout: 40000,
