@@ -7,6 +7,14 @@ const SYSTEM_PROMPT = "You are Himanshu Chaudhary's AI chat assistant on his por
 
 const CONTEXT_HEADER = "**Relevant writing from Himanshu's blog (use this as context when the question is about his articles/blog/writing):**";
 
+const MEETING_INTENT =
+  /(?:let'?s?\s+(?:set\s+up|meet|talk|connect|chat)|(?:set\s+up|schedule|book|reserve|arrange)\s+(?:a\s+)?(?:meeting|call|chat|session|appointment|slot|time)|availab|coordinat|how\s+can\s+i\s+(?:schedule|book|arrange)|get\s+in\s+touch|reach\s+out|want\s+(?:to\s+)?(?:meet|schedule|book)|need\s+(?:a\s+)?(?:meeting|call|time|slot))/i;
+
+const MEETING_EXCLUDES =
+  /(?:articles?|blog|writing|learned|explain|summar|price\s?iq|cli|agent|distributed|post|read|what did|how did|why did)/i;
+
+const isMeetingIntent = (query) => MEETING_INTENT.test(query) && !MEETING_EXCLUDES.test(query);
+
 const GRACEFUL_RESPONSE = "⚠️ My AI service is temporarily unreachable — but I'm still here! Ask me to \"list\" my latest blog articles (e.g. 'all posts'), or browse https://blog.buildwithhimanshu.com. Try again in a moment.";
 
 class AIController {
@@ -176,7 +184,9 @@ class AIController {
 
       let writingSources = [];
       try {
-        writingSources = this.keepRelevant(await rag.retrieve(query, 4));
+        writingSources = isMeetingIntent(query)
+          ? []
+          : this.keepRelevant(await rag.retrieve(query, 4));
       } catch (e) {
         writingSources = [];
       }
@@ -350,7 +360,9 @@ class AIController {
 
       writingSources = [];
       try {
-        writingSources = this.keepRelevant(await rag.retrieve(query, 4));
+        writingSources = isMeetingIntent(query)
+          ? []
+          : this.keepRelevant(await rag.retrieve(query, 4));
       } catch (e) {
         writingSources = [];
       }
